@@ -1,3 +1,4 @@
+use image::{ImageBuffer, Rgb};
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{CameraIndex, RequestedFormat, RequestedFormatType, Resolution};
 use nokhwa::Camera;
@@ -9,6 +10,7 @@ use peppygen::parameters::{
     video::{Resolution as VideoResolution, Video},
 };
 use peppygen::{NodeBuilder, Parameters, Result, StandaloneConfig};
+use std::io::Cursor;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 use tokio_util::sync::CancellationToken;
@@ -46,11 +48,11 @@ fn main() -> Result<()> {
 
             println!("[uvc_camera] Device: {}", device_params.physical);
 
-            // Validate encoding - this node outputs RGB24 format data
+            // Validate encoding format
             let encoding = &video_params.encoding;
-            if encoding != "rgb8" && encoding != "rgb" {
+            if encoding != "rgb8" && encoding != "bgr8" && encoding != "mjpeg" {
                 panic!(
-                    "Invalid encoding '{}'. This camera node outputs RGB24 data, so encoding must be 'rgb8' or 'rgb'",
+                    "Invalid encoding '{}'. Supported encodings are: 'rgb8', 'bgr8', 'mjpeg'",
                     encoding
                 );
             }
@@ -153,7 +155,32 @@ async fn run_camera_capture_loop(
                 }
             };
 
-            let data = rgb_frame.into_raw();
+            let rgb_data = rgb_frame.into_raw();
+
+            // Convert data based on requested encoding
+            let data = match encoding.as_str() {
+                "rgb8" => rgb_data,
+                "bgr8" => {
+                    // Convert RGB to BGR by swapping R and B channels
+                    let mut bgr_data = rgb_data;
+                    for chunk in bgr_data.chunks_exact_mut(3) {
+                        chunk.swap(0, 2); // Swap R and B
+                    }
+                    bgr_data
+                }
+                "mjpeg" => {
+                    // Encode as JPEG
+                    match encode_jpeg(&rgb_data, width, height) {
+                        Ok(jpeg_data) => jpeg_data,
+                        Err(e) => {
+                            tracing::warn!("Failed to encode JPEG: {}", e);
+                            std::thread::sleep(std::time::Duration::from_millis(10));
+                            continue;
+                        }
+                    }
+                }
+                _ => rgb_data, // Should never happen due to validation
+            };
 
             let header = MessageHeader {
                 stamp: SystemTime::now(),
@@ -192,6 +219,29 @@ async fn run_camera_capture_loop(
     .expect("Camera thread panicked");
 
     Ok(())
+}
+
+/// Encode RGB data as JPEG
+fn encode_jpeg(rgb_data: &[u8], width: u32, height: u32) -> std::result::Result<Vec<u8>, String> {
+    // Create image buffer from RGB data
+    let img = ImageBuffer::<Rgb<u8>, _>::from_raw(width, height, rgb_data)
+        .ok_or_else(|| "Failed to create image buffer".to_string())?;
+
+    // Encode as JPEG with quality 85
+    let mut jpeg_data = Vec::new();
+    let mut cursor = Cursor::new(&mut jpeg_data);
+    
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 85);
+    encoder
+        .encode(
+            img.as_raw(),
+            width,
+            height,
+            image::ExtendedColorType::Rgb8,
+        )
+        .map_err(|e| format!("JPEG encoding failed: {}", e))?;
+
+    Ok(jpeg_data)
 }
 
 async fn listen_for_video_stream_info_requests(

@@ -4,12 +4,12 @@ A basic USB Video Class (UVC) camera node for the Peppy framework that captures 
 
 ## Overview
 
-This node captures video frames from a UVC-compatible camera and publishes them as RGB8 frames on the `video_stream` topic. It provides a simple interface for integrating USB cameras into Peppy-based robotics systems.
+This node captures video frames from a UVC-compatible camera and publishes them on the `video_stream` topic. It supports multiple encoding formats (RGB8, BGR8, MJPEG) and provides a simple interface for integrating USB cameras into Peppy-based robotics systems.
 
 ## Features
 
 - **Real-time video capture** from UVC cameras
-- **RGB8 encoding** output (24-bit RGB)
+- **Multiple encoding formats**: RGB8, BGR8, and MJPEG
 - **Configurable resolution and frame rate**
 - **Camera info service** for querying capabilities
 - **Graceful shutdown** handling
@@ -73,7 +73,7 @@ The node is configured via the `peppy.json5` parameters:
       width: 640,                // Frame width in pixels
       height: 480                // Frame height in pixels
     },
-    encoding: "rgb8"             // Output encoding (rgb8/rgb)
+    encoding: "rgb8"             // Output encoding: "rgb8", "bgr8", or "mjpeg"
   }
 }
 ```
@@ -87,7 +87,7 @@ The node is configured via the `peppy.json5` parameters:
 | `video.frame_rate` | u16 | 30 | Target frame rate (fps) |
 | `video.resolution.width` | u16 | 640 | Frame width |
 | `video.resolution.height` | u16 | 480 | Frame height |
-| `video.encoding` | string | "rgb8" | Output encoding |
+| `video.encoding` | string | "rgb8" | Output encoding: "rgb8", "bgr8", or "mjpeg" |
 
 ## Published Topics
 
@@ -100,12 +100,17 @@ Publishes camera frames with the following message structure:
     stamp: SystemTime,    // Capture timestamp
     frame_id: u32         // Sequential frame counter
   },
-  encoding: string,       // "rgb8"
+  encoding: string,       // "rgb8", "bgr8", or "mjpeg"
   width: u32,             // Frame width
   height: u32,            // Frame height
-  data: Vec<u8>           // Raw RGB pixel data
+  data: Vec<u8>           // Raw pixel data (format depends on encoding)
 }
 ```
+
+**Encoding Formats:**
+- `rgb8`: 24-bit RGB (3 bytes per pixel: R, G, B)
+- `bgr8`: 24-bit BGR (3 bytes per pixel: B, G, R)
+- `mjpeg`: JPEG-compressed image data (variable size)
 
 **QoS Profile**: `sensor_data` (best-effort, volatile)
 
@@ -220,8 +225,7 @@ println!("Camera: {}x{} @ {} fps ({})",
 
 ## Known Limitations
 
-- Device path is currently hardcoded to `/dev/video1`
-- Only RGB8 encoding is supported
+- Device path is currently hardcoded to `/dev/video0` (index 0)
 - No runtime camera control adjustment (exposure, white balance, etc.)
 - Camera must be connected at node startup
 - No automatic reconnection on disconnect
