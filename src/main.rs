@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     // Example configuration for standalone execution
     let standalone_config = StandaloneConfig::new().with_parameters(&Parameters {
         device: Device {
-            physical: "/dev/video1".to_string(),
+            physical: "/dev/video0".to_string(),
             priority: "physical".to_string(),
         },
         video: Video {
@@ -93,8 +93,8 @@ async fn run_camera_capture_loop(
     
     // Run the entire camera loop in a blocking task
     tokio::task::spawn_blocking(move || {
-        // Hardcoded to /dev/video1 as requested
-        let camera_index = CameraIndex::Index(1);
+        // Hardcoded to /dev/video0 as requested
+        let camera_index = CameraIndex::Index(0);
         let requested_format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
 
         println!("[uvc_camera] Opening camera /dev/video1...");
