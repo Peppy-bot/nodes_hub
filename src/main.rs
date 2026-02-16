@@ -1,4 +1,3 @@
-use image::{ImageBuffer, Rgb};
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{CameraIndex, RequestedFormat, RequestedFormatType, Resolution};
 use nokhwa::Camera;
@@ -223,9 +222,14 @@ async fn run_camera_capture_loop(
 
 /// Encode RGB data as JPEG
 fn encode_jpeg(rgb_data: &[u8], width: u32, height: u32) -> std::result::Result<Vec<u8>, String> {
-    // Create image buffer from RGB data
-    let img = ImageBuffer::<Rgb<u8>, _>::from_raw(width, height, rgb_data)
-        .ok_or_else(|| "Failed to create image buffer".to_string())?;
+    // Validate data length
+    let expected_len = (width * height * 3) as usize;
+    if rgb_data.len() != expected_len {
+        return Err(format!(
+            "Invalid data length: expected {} bytes for {}x{} RGB image, got {}",
+            expected_len, width, height, rgb_data.len()
+        ));
+    }
 
     // Encode as JPEG with quality 85
     let mut jpeg_data = Vec::new();
@@ -234,7 +238,7 @@ fn encode_jpeg(rgb_data: &[u8], width: u32, height: u32) -> std::result::Result<
     let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 85);
     encoder
         .encode(
-            img.as_raw(),
+            rgb_data,
             width,
             height,
             image::ExtendedColorType::Rgb8,
