@@ -19,7 +19,7 @@ fn main() -> Result<()> {
     let standalone_config = StandaloneConfig::new().with_parameters(&Parameters {
         device: Device {
             physical: "/dev/video0".to_string(),
-            priority: "physical".to_string(),
+            priority: "normal".to_string(),
         },
         video: Video {
             encoding: "rgb8".to_string(),
@@ -223,7 +223,17 @@ async fn run_camera_capture_loop(
 /// Encode RGB data as JPEG
 fn encode_jpeg(rgb_data: &[u8], width: u32, height: u32) -> std::result::Result<Vec<u8>, String> {
     // Validate data length
-    let expected_len = (width * height * 3) as usize;
+    let expected_len = {
+        let len_u32 = width * height * 3;
+        if len_u32 as usize > usize::MAX {
+            return Err(format!(
+                "Image size is too large: {} bytes exceeds usize::MAX",
+                len_u32
+            ));
+        }
+        len_u32 as usize
+    };
+
     if rgb_data.len() != expected_len {
         return Err(format!(
             "Invalid data length: expected {} bytes for {}x{} RGB image, got {}",

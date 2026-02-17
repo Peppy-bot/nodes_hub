@@ -103,7 +103,7 @@ Publishes camera frames with the following message structure:
   encoding: string,       // "rgb8", "bgr8", or "mjpeg"
   width: u32,             // Frame width
   height: u32,            // Frame height
-  data: Vec<u8>           // Raw pixel data (format depends on encoding)
+  frame: Vec<u8>           // Raw pixel data (format depends on encoding)
 }
 ```
 
