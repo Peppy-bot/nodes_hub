@@ -67,10 +67,9 @@ cargo test -- --include-ignored --test-threads=1
 
 1. **test_open_virtual_camera** - Verifies basic camera opening
 2. **test_capture_frames_from_virtual_camera** - Captures and validates multiple frames
-3. **test_different_resolutions** - Tests 320x240, 640x480, 1280x720 resolutions
-4. **test_capture_color_bars** - Tests with SMPTE color bars pattern
-5. **test_parse_device_and_capture** - Tests device path parsing with real device
-6. **test_frame_rate_timing** - Validates frame rate timing
+3. **test_capture_color_bars** - Tests with SMPTE color bars pattern
+4. **test_parse_device_and_capture** - Tests device path parsing with real device
+5. **test_frame_rate_timing** - Validates frame rate timing
 
 ### Test Helper: VirtualCamera
 
@@ -109,7 +108,7 @@ jobs:
       
       - name: Load v4l2loopback
         run: |
-          sudo modprobe v4l2loopback devices=1 video_nr=10
+          sudo modprobe v4l2loopback devices=1 video_nr=10 exclusive_caps=0 max_buffers=2 card_label="TestCamera"
           v4l2-ctl --list-devices
       
       - name: Run integration tests

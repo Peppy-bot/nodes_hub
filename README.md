@@ -232,10 +232,10 @@ cargo tarpaulin --out Html
   - **Conversion tests** (12 tests): RGB to BGR conversion, JPEG encoding, edge cases, error handling
   - **Camera tests** (7 tests): Device path parsing, numeric indices, invalid inputs
 
-- **Integration Tests** (6 tests, requires setup):
+- **Integration Tests** (5 tests, requires setup):
   - Virtual camera creation and frame capture
-  - Multiple resolution testing (320x240, 640x480, 1280x720)
   - Color bar pattern testing
+  - Device path parsing with real device
   - Frame rate timing validation
   - Full pipeline testing with v4l2loopback
 

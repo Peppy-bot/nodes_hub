@@ -2,7 +2,7 @@
 const JPEG_QUALITY: u8 = 85;
 
 /// Convert RGB data to BGR by swapping R and B channels
-#[must_use] 
+#[must_use]
 pub fn convert_rgb_to_bgr(mut rgb_data: Vec<u8>) -> Vec<u8> {
     for chunk in rgb_data.chunks_exact_mut(3) {
         chunk.swap(0, 2);
