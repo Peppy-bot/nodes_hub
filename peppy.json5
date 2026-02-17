@@ -21,10 +21,7 @@
     ]
   },
   parameters: {
-    device: {
-      physical: "string",
-      priority: "string"
-    },
+    device: "string",
     video: {
       frame_rate: "u16",
       resolution: {
