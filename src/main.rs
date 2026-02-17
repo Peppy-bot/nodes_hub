@@ -2,14 +2,9 @@ use peppygen::parameters::video::{Resolution as VideoResolution, Video};
 use peppygen::{NodeBuilder, Parameters, Result, StandaloneConfig};
 use std::sync::Arc;
 
-mod camera;
-mod conversion;
-mod encoding;
-mod services;
-
-use camera::{run_camera_capture_loop, CameraParameters};
-use encoding::Encoding;
-use services::listen_for_video_stream_info_requests;
+use uvc_camera::camera::{run_camera_capture_loop, CameraParameters};
+use uvc_camera::encoding::Encoding;
+use uvc_camera::services::listen_for_video_stream_info_requests;
 
 fn main() -> Result<()> {
     // Example configuration for standalone execution
@@ -39,7 +34,7 @@ fn main() -> Result<()> {
                 video_params.encoding
             );
 
-            println!("[uvc_camera] Device: {}", device);
+            println!("[uvc_camera] Device: {device}");
 
             // Parse and validate encoding format
             let encoding = video_params.encoding.parse::<Encoding>()
