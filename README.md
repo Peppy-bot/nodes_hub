@@ -19,7 +19,7 @@ This node captures video frames from a UVC-compatible camera and publishes them 
 
 ### Hardware
 - UVC-compatible USB camera
-- Camera must be accessible at `/dev/video1` (currently hardcoded)
+- Camera device path configurable via parameters (e.g., `/dev/video0`, `/dev/video1`)
 
 ### Software
 - Rust (latest stable)
@@ -64,8 +64,8 @@ The node is configured via the `peppy.json5` parameters:
 ```json5
 {
   device: {
-    physical: "/dev/video1",    // Device path (Linux) or index (macOS)
-    priority: "physical"         // "physical" for real camera
+    physical: "/dev/video0",    // Device path (e.g., "/dev/video0", "/dev/video1") or index ("0", "1")
+    priority: "normal"           // Device priority mode
   },
   video: {
     frame_rate: 30,              // Target frames per second
@@ -82,8 +82,8 @@ The node is configured via the `peppy.json5` parameters:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `device.physical` | string | "/dev/video1" | Camera device path |
-| `device.priority` | string | "physical" | Device priority mode |
+| `device.physical` | string | "/dev/video0" | Camera device path or index (e.g., "/dev/video0", "0") |
+| `device.priority` | string | "normal" | Device priority mode |
 | `video.frame_rate` | u16 | 30 | Target frame rate (fps) |
 | `video.resolution.width` | u16 | 640 | Frame width |
 | `video.resolution.height` | u16 | 480 | Frame height |
@@ -133,18 +133,18 @@ Query camera capabilities and current configuration.
 
 ### Camera Not Found
 ```
-Error: Failed to open camera /dev/video1
+Error: Failed to open camera /dev/video0
 ```
 
 **Solutions:**
 1. Check camera is connected: `ls -l /dev/video*`
 2. Verify permissions: `groups` should include `video`
-3. Try different camera index (e.g., `/dev/video0`)
+3. Try different camera index in configuration (e.g., "/dev/video1")
 4. Check camera works: `v4l2-ctl --list-devices` (Linux)
 
 ### Permission Denied
 ```
-Error: Permission denied when accessing /dev/video1
+Error: Permission denied when accessing /dev/videoX
 ```
 
 **Solution:**
@@ -225,7 +225,6 @@ println!("Camera: {}x{} @ {} fps ({})",
 
 ## Known Limitations
 
-- Device path is currently hardcoded to `/dev/video0` (index 0)
 - No runtime camera control adjustment (exposure, white balance, etc.)
 - Camera must be connected at node startup
 - No automatic reconnection on disconnect
@@ -235,10 +234,9 @@ println!("Camera: {}x{} @ {} fps ({})",
 See [plan.md](../plan.md) for planned features:
 - Individual camera control services (exposure, white balance, gain, brightness, contrast)
 - Graceful shutdown service
-- Dynamic device selection
-- Additional encoding support (BGR8, MJPEG, YUV420P)
 - Camera reconnection handling
 - Comprehensive unit and integration tests
+- Configurable JPEG quality parameter
 
 ## License
 

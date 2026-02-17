@@ -66,8 +66,9 @@ fn main() -> Result<()> {
 
             // Long running capture task
             let cancel_token = node_runner.cancellation_token().clone();
+            let device_path = device_params.physical.clone();
             tokio::spawn(async move {
-                if let Err(e) = run_camera_capture_loop(node_runner, video_params, cancel_token).await
+                if let Err(e) = run_camera_capture_loop(node_runner, video_params, device_path, cancel_token).await
                 {
                     tracing::error!("Camera capture loop error: {e:?}");
                 }
@@ -80,6 +81,7 @@ fn main() -> Result<()> {
 async fn run_camera_capture_loop(
     node_runner: Arc<peppygen::NodeRunner>,
     video_params: parameters::video::Video,
+    device_path: String,
     cancel_token: CancellationToken,
 ) -> Result<()> {
     println!("[uvc_camera] Starting camera capture loop...");
@@ -94,13 +96,13 @@ async fn run_camera_capture_loop(
     
     // Run the entire camera loop in a blocking task
     tokio::task::spawn_blocking(move || {
-        // Hardcoded to /dev/video0 as requested
-        let camera_index = CameraIndex::Index(0);
+        // Parse camera index from device path (e.g., "/dev/video0" -> 0)
+        let camera_index = parse_camera_index(&device_path);
         let requested_format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
 
-        println!("[uvc_camera] Opening camera /dev/video1...");
+        println!("[uvc_camera] Opening camera {}...", device_path);
         let mut camera = Camera::new(camera_index, requested_format)
-            .unwrap_or_else(|e| panic!("Failed to open camera /dev/video1: {}", e));
+            .unwrap_or_else(|e| panic!("Failed to open camera {}: {}", device_path, e));
 
         // Set camera resolution
         let resolution = Resolution::new(width, height);
@@ -218,6 +220,30 @@ async fn run_camera_capture_loop(
     .expect("Camera thread panicked");
 
     Ok(())
+}
+
+/// Parse camera index from device path
+/// Supports formats like "/dev/video0", "/dev/video1", or just "0", "1"
+fn parse_camera_index(device_path: &str) -> CameraIndex {
+    // Try to extract number from paths like "/dev/video0" or "/dev/video1"
+    if let Some(video_prefix_pos) = device_path.rfind("video") {
+        let number_str = &device_path[video_prefix_pos + 5..];
+        if let Ok(index) = number_str.parse::<u32>() {
+            return CameraIndex::Index(index);
+        }
+    }
+    
+    // Try parsing the entire string as a number
+    if let Ok(index) = device_path.parse::<u32>() {
+        return CameraIndex::Index(index);
+    }
+    
+    // Default to index 0 if parsing fails
+    tracing::warn!(
+        "Could not parse camera index from '{}', defaulting to index 0",
+        device_path
+    );
+    CameraIndex::Index(0)
 }
 
 /// Encode RGB data as JPEG
