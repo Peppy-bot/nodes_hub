@@ -1,9 +1,9 @@
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{CameraIndex, RequestedFormat, RequestedFormatType, Resolution};
 use nokhwa::Camera;
+use anyhow::{Context, Result};
 use peppygen::exposed_topics::video_stream::{self, MessageHeader};
 use peppygen::parameters::video::Resolution as VideoResolution;
-use peppygen::Result;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 use tokio_util::sync::CancellationToken;
@@ -14,6 +14,7 @@ use crate::encoding::Encoding;
 // Constants
 const FRAME_RETRY_DELAY_MS: u64 = 10;
 const STATUS_PRINT_INTERVAL_SECS: u64 = 3;
+const DEFAULT_FRAME_RATE: u16 = 30;
 
 /// Camera configuration parameters
 #[derive(Debug, Clone)]
@@ -58,7 +59,16 @@ pub async fn run_camera_capture_loop(
 
     let width = params.resolution.width as u32;
     let height = params.resolution.height as u32;
-    let frame_duration = Duration::from_millis(1000 / params.frame_rate as u64);
+    
+    // Handle edge case: frame_rate of 0 would cause division by zero
+    let frame_rate = if params.frame_rate == 0 {
+        tracing::warn!("Frame rate is 0, using default of {} fps", DEFAULT_FRAME_RATE);
+        DEFAULT_FRAME_RATE
+    } else {
+        params.frame_rate
+    };
+    
+    let frame_duration = Duration::from_millis(1000 / frame_rate as u64);
     
     // Run the entire camera loop in a blocking task
     tokio::task::spawn_blocking(move || {
@@ -68,28 +78,28 @@ pub async fn run_camera_capture_loop(
 
         println!("[uvc_camera] Opening camera {}...", params.device_path);
         let mut camera = Camera::new(camera_index, requested_format)
-            .unwrap_or_else(|_| panic!("Failed to open camera {}", params.device_path));
+            .with_context(|| format!("Failed to open camera {}", params.device_path))?;
 
         // Set camera resolution
         let resolution = Resolution::new(width, height);
         camera
             .set_resolution(resolution)
-            .expect("Failed to set resolution");
+            .context("Failed to set resolution")?;
 
         // Set frame rate
         camera
-            .set_frame_rate(params.frame_rate as u32)
-            .expect("Failed to set frame rate");
+            .set_frame_rate(frame_rate as u32)
+            .context("Failed to set frame rate")?;
 
         println!(
             "[uvc_camera] Camera configured: {}x{} @ {} fps",
-            width, height, params.frame_rate
+            width, height, frame_rate
         );
 
         // Open camera stream
         camera
             .open_stream()
-            .expect("Failed to open camera stream");
+            .context("Failed to open camera stream")?;
 
         println!("[uvc_camera] Camera stream opened successfully");
 
@@ -170,9 +180,9 @@ pub async fn run_camera_capture_loop(
             // Rate limiting to target FPS
             std::thread::sleep(frame_duration);
         }
+        
+        Ok(())
     })
     .await
-    .expect("Camera thread panicked");
-
-    Ok(())
+    .context("Camera thread panicked")?
 }

@@ -43,7 +43,9 @@ fn main() -> Result<()> {
 
             // Parse and validate encoding format
             let encoding = video_params.encoding.parse::<Encoding>()
-                .unwrap_or_else(|e| panic!("{}", e));
+                .unwrap_or_else(|e| {
+                    panic!("Invalid encoding format '{}': {}", video_params.encoding, e)
+                });
 
             // Create camera parameters
             let camera_params = CameraParameters {
@@ -55,10 +57,9 @@ fn main() -> Result<()> {
 
             // Service to expose camera info
             let service_node_runner = Arc::clone(&node_runner);
-            let service_video_params = video_params.clone();
+            let service_params = camera_params.clone();
             tokio::spawn(async move {
-                listen_for_video_stream_info_requests(service_node_runner, service_video_params)
-                    .await;
+                listen_for_video_stream_info_requests(service_node_runner, service_params).await;
             });
 
             // Long running capture task
