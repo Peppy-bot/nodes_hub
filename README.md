@@ -171,10 +171,20 @@ cargo build --release
 uvc_camera/
 ├── src/
 │   ├── main.rs          # Entry point and configuration
+│   ├── lib.rs           # Library interface for testing
 │   ├── encoding.rs      # Encoding enum (Rgb8, Bgr8, Mjpeg)
 │   ├── conversion.rs    # Format conversion functions
 │   ├── camera.rs        # Camera operations and capture loop
 │   └── services.rs      # Service handlers
+├── tests/
+│   ├── encoding_tests.rs    # Encoding enum tests
+│   ├── conversion_tests.rs  # Format conversion tests
+│   ├── camera_tests.rs      # Camera parsing tests
+│   ├── integration_tests.rs # Integration tests (v4l2loopback)
+│   ├── helpers/
+│   │   └── virtual_camera.rs # Virtual camera helper
+│   ├── setup_v4l2loopback.sh # Setup script for integration tests
+│   └── INTEGRATION_TESTS.md  # Integration test documentation
 ├── Cargo.toml           # Rust dependencies
 ├── peppy.json5          # Peppy node configuration
 └── README.md            # This file
@@ -191,6 +201,46 @@ uvc_camera/
 - Camera operations run in a blocking task (`spawn_blocking`) because nokhwa's `Camera` type is not `Send`
 - Frame emission uses `block_in_place` to call async code from blocking context
 - Rate limiting ensures target FPS is maintained
+
+### Testing
+
+Run the test suite:
+```bash
+# Run all unit tests
+cargo test
+
+# Run tests with output
+cargo test -- --nocapture
+
+# Run specific test file
+cargo test --test encoding_tests
+
+# Run integration tests (requires v4l2loopback)
+cargo test --test integration_tests -- --ignored
+
+# Run ALL tests including integration tests
+cargo test -- --include-ignored
+
+# Run with code coverage (requires cargo-tarpaulin)
+cargo tarpaulin --out Html
+```
+
+**Test Coverage:**
+- **Unit Tests** (26 tests):
+  - **Encoding tests** (7 tests): FromStr parsing, Display trait, case insensitivity, roundtrip conversion
+  - **Conversion tests** (12 tests): RGB to BGR conversion, JPEG encoding, edge cases, error handling
+  - **Camera tests** (7 tests): Device path parsing, numeric indices, invalid inputs
+
+- **Integration Tests** (6 tests, requires setup):
+  - Virtual camera creation and frame capture
+  - Multiple resolution testing (320x240, 640x480, 1280x720)
+  - Color bar pattern testing
+  - Frame rate timing validation
+  - Full pipeline testing with v4l2loopback
+
+For integration test setup, see [tests/INTEGRATION_TESTS.md](tests/INTEGRATION_TESTS.md).
+
+All unit tests pass with zero clippy warnings.
 
 ## Example Usage
 
@@ -236,7 +286,7 @@ See [plan.md](../plan.md) for planned features:
 - Individual camera control services (exposure, white balance, gain, brightness, contrast)
 - Graceful shutdown service
 - Camera reconnection handling
-- Comprehensive unit and integration tests
+- ✅ ~~Comprehensive unit and integration tests~~ (Completed)
 - Configurable JPEG quality parameter
 
 ## License
