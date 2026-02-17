@@ -63,17 +63,14 @@ The node is configured via the `peppy.json5` parameters:
 
 ```json5
 {
-  device: {
-    physical: "/dev/video0",    // Device path (e.g., "/dev/video0", "/dev/video1") or index ("0", "1")
-    priority: "normal"           // Device priority mode
-  },
+  device: "/dev/video0",      // Device path (e.g., "/dev/video0", "/dev/video1") or index ("0", "1")
   video: {
-    frame_rate: 30,              // Target frames per second
+    frame_rate: 30,           // Target frames per second
     resolution: {
-      width: 640,                // Frame width in pixels
-      height: 480                // Frame height in pixels
+      width: 640,             // Frame width in pixels
+      height: 480             // Frame height in pixels
     },
-    encoding: "rgb8"             // Output encoding: "rgb8", "bgr8", or "mjpeg"
+    encoding: "rgb8"          // Output encoding: "rgb8", "bgr8", or "mjpeg"
   }
 }
 ```
@@ -82,8 +79,7 @@ The node is configured via the `peppy.json5` parameters:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `device.physical` | string | "/dev/video0" | Camera device path or index (e.g., "/dev/video0", "0") |
-| `device.priority` | string | "normal" | Device priority mode |
+| `device` | string | "/dev/video0" | Camera device path or index (e.g., "/dev/video0", "0") |
 | `video.frame_rate` | u16 | 30 | Target frame rate (fps) |
 | `video.resolution.width` | u16 | 640 | Frame width |
 | `video.resolution.height` | u16 | 480 | Frame height |
@@ -174,7 +170,11 @@ cargo build --release
 ```
 uvc_camera/
 ├── src/
-│   └── main.rs          # Main implementation
+│   ├── main.rs          # Entry point and configuration
+│   ├── encoding.rs      # Encoding enum (Rgb8, Bgr8, Mjpeg)
+│   ├── conversion.rs    # Format conversion functions
+│   ├── camera.rs        # Camera operations and capture loop
+│   └── services.rs      # Service handlers
 ├── Cargo.toml           # Rust dependencies
 ├── peppy.json5          # Peppy node configuration
 └── README.md            # This file
@@ -184,6 +184,7 @@ uvc_camera/
 - `nokhwa` (0.10) - Camera capture library
 - `peppygen` - Peppy code generation
 - `tokio` - Async runtime
+- `image` - JPEG encoding for MJPEG format
 - `tracing` - Logging
 
 ### Implementation Notes
