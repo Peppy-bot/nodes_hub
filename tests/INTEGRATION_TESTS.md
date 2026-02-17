@@ -21,7 +21,8 @@ ls /dev/video*
 ### Load v4l2loopback Module
 ```bash
 # Load the module and create a virtual device at /dev/video10
-sudo modprobe v4l2loopback devices=1 video_nr=10 card_label="TestCamera"
+# Note: exclusive_caps=0 is required for compatibility with nokhwa
+sudo modprobe v4l2loopback devices=1 video_nr=10 exclusive_caps=0 max_buffers=2 card_label="TestCamera"
 
 # Verify the device was created
 ls -l /dev/video10
@@ -29,7 +30,7 @@ v4l2-ctl --list-devices
 
 # To make it persistent across reboots (optional)
 echo "v4l2loopback" | sudo tee /etc/modules-load.d/v4l2loopback.conf
-echo "options v4l2loopback devices=1 video_nr=10 card_label='TestCamera'" | \
+echo "options v4l2loopback devices=1 video_nr=10 exclusive_caps=0 max_buffers=2 card_label='TestCamera'" | \
   sudo tee /etc/modprobe.d/v4l2loopback.conf
 ```
 
@@ -40,21 +41,24 @@ sudo modprobe -r v4l2loopback
 
 ## Running Integration Tests
 
+**Important:** Integration tests must run single-threaded (`--test-threads=1`) because they all share the same v4l2loopback device (`/dev/video10`). Running tests in parallel will cause device conflicts and test failures.
+
 ### Run All Integration Tests
 ```bash
 # From the uvc_camera directory
-cargo test --test integration_tests -- --ignored
+# IMPORTANT: Use --test-threads=1 to avoid device conflicts
+cargo test --test integration_tests -- --ignored --test-threads=1
 
 # With output
-cargo test --test integration_tests -- --ignored --nocapture
+cargo test --test integration_tests -- --ignored --test-threads=1 --nocapture
 
 # Run specific test
-cargo test --test integration_tests test_capture_frames_from_virtual_camera -- --ignored --nocapture
+cargo test --test integration_tests test_capture_frames_from_virtual_camera -- --ignored --test-threads=1 --nocapture
 ```
 
 ### Run All Tests (Unit + Integration)
 ```bash
-cargo test -- --include-ignored
+cargo test -- --include-ignored --test-threads=1
 ```
 
 ## Test Overview
@@ -109,7 +113,7 @@ jobs:
           v4l2-ctl --list-devices
       
       - name: Run integration tests
-        run: cargo test -- --include-ignored
+        run: cargo test -- --include-ignored --test-threads=1
 ```
 
 ## Troubleshooting
@@ -158,7 +162,7 @@ You can manually test with the virtual device:
 ```bash
 # Start streaming test pattern
 ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=30 \
-  -pix_fmt yuv420p -f v4l2 /dev/video10
+  -pix_fmt rgb24 -f v4l2 /dev/video10
 
 # In another terminal, view the stream
 ffplay /dev/video10
@@ -183,7 +187,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY . .
 
-CMD ["bash", "-c", "modprobe v4l2loopback && cargo test -- --include-ignored"]
+CMD ["bash", "-c", "modprobe v4l2loopback && cargo test -- --include-ignored --test-threads=1"]
 ```
 
 Note: Docker approach requires `--privileged` flag for module loading.

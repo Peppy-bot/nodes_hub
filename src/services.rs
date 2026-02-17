@@ -11,9 +11,9 @@ pub async fn listen_for_video_stream_info_requests(
     loop {
         if let Err(e) = video_stream_info::handle_next_request(&node_runner, |_request| {
             Ok(video_stream_info::Response::new(
-                params.resolution.width as u32,
-                params.resolution.height as u32,
-                params.frame_rate as u8,
+                u32::from(params.resolution.width),
+                u32::from(params.resolution.height),
+                u8::try_from(params.frame_rate).unwrap_or(u8::MAX),
                 params.encoding.to_string(),
             ))
         })

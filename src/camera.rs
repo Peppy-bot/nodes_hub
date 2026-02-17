@@ -50,6 +50,14 @@ pub fn parse_camera_index(device_path: &str) -> CameraIndex {
 }
 
 /// Run the camera capture loop
+///
+/// # Errors
+/// 
+/// Returns an error if:
+/// - Camera cannot be opened
+/// - Resolution or frame rate cannot be set
+/// - Camera stream cannot be opened
+/// - Frame capture fails repeatedly
 pub async fn run_camera_capture_loop(
     node_runner: Arc<peppygen::NodeRunner>,
     params: CameraParameters,
@@ -57,8 +65,8 @@ pub async fn run_camera_capture_loop(
 ) -> Result<()> {
     println!("[uvc_camera] Starting camera capture loop...");
 
-    let width = params.resolution.width as u32;
-    let height = params.resolution.height as u32;
+    let width = u32::from(params.resolution.width);
+    let height = u32::from(params.resolution.height);
     
     // Handle edge case: frame_rate of 0 would cause division by zero
     let frame_rate = if params.frame_rate == 0 {
@@ -68,13 +76,13 @@ pub async fn run_camera_capture_loop(
         params.frame_rate
     };
     
-    let frame_duration = Duration::from_millis(1000 / frame_rate as u64);
+    let frame_duration = Duration::from_millis(1000 / u64::from(frame_rate));
     
     // Run the entire camera loop in a blocking task
     tokio::task::spawn_blocking(move || {
         // Parse camera index from device path (e.g., "/dev/video0" -> 0)
         let camera_index = parse_camera_index(&params.device_path);
-        let requested_format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
+        let requested_format = RequestedFormat::new::<RgbFormat>(RequestedFormatType::None);
 
         println!("[uvc_camera] Opening camera {}...", params.device_path);
         let mut camera = Camera::new(camera_index, requested_format)
@@ -88,12 +96,11 @@ pub async fn run_camera_capture_loop(
 
         // Set frame rate
         camera
-            .set_frame_rate(frame_rate as u32)
+            .set_frame_rate(u32::from(frame_rate))
             .context("Failed to set frame rate")?;
 
         println!(
-            "[uvc_camera] Camera configured: {}x{} @ {} fps",
-            width, height, frame_rate
+            "[uvc_camera] Camera configured: {width}x{height} @ {frame_rate} fps"
         );
 
         // Open camera stream
@@ -167,11 +174,11 @@ pub async fn run_camera_capture_loop(
                     .await {
                         tracing::warn!("Failed to emit frame: {}", e);
                     }
-                })
+                });
             });
 
             if last_print_time.elapsed().as_secs() >= STATUS_PRINT_INTERVAL_SECS {
-                println!("[uvc_camera] Emitted frame {}", frame_id);
+                println!("[uvc_camera] Emitted frame {frame_id}");
                 last_print_time = Instant::now();
             }
 

@@ -9,7 +9,7 @@ use std::time::Duration;
 /// # Setup
 /// ```bash
 /// sudo apt-get install v4l2loopback-dkms v4l2loopback-utils ffmpeg
-/// sudo modprobe v4l2loopback devices=1 video_nr=10 card_label="TestCamera"
+/// sudo modprobe v4l2loopback devices=1 video_nr=10 exclusive_caps=0 max_buffers=2 card_label="TestCamera"
 /// ```
 pub struct VirtualCamera {
     ffmpeg_process: Child,
@@ -27,22 +27,20 @@ impl VirtualCamera {
     /// * `fps` - Frames per second
     ///
     /// # Returns
-    /// Result containing VirtualCamera or error if setup fails
+    /// Result containing `VirtualCamera` or error if setup fails
     pub fn new(device_nr: u32, width: u32, height: u32, fps: u32) -> Result<Self, String> {
-        let device_path = format!("/dev/video{}", device_nr);
+        let device_path = format!("/dev/video{device_nr}");
         
         // Check if device exists
         if !std::path::Path::new(&device_path).exists() {
             return Err(format!(
-                "Device {} not found. Is v4l2loopback loaded? Run: sudo modprobe v4l2loopback devices=1 video_nr={}",
-                device_path, device_nr
+                "Device {device_path} not found. Is v4l2loopback loaded? Run: sudo modprobe v4l2loopback devices=1 video_nr={device_nr}"
             ));
         }
         
         // Check if ffmpeg is available
         if Command::new("which").arg("ffmpeg").output().ok()
-            .map(|o| !o.status.success())
-            .unwrap_or(true)
+            .is_none_or(|o| !o.status.success())
         {
             return Err("ffmpeg not found. Install with: sudo apt-get install ffmpeg".to_string());
         }
@@ -52,8 +50,8 @@ impl VirtualCamera {
             .args([
                 "-re",                      // Read input at native frame rate
                 "-f", "lavfi",              // Use libavfilter virtual input
-                "-i", &format!("testsrc=size={}x{}:rate={}", width, height, fps),
-                "-pix_fmt", "yuv420p",      // Pixel format
+                "-i", &format!("testsrc=size={width}x{height}:rate={fps}"),
+                "-pix_fmt", "rgb24",        // Pixel format (must match nokhwa's RgbFormat)
                 "-f", "v4l2",               // Output to V4L2 device
                 &device_path
             ])
@@ -61,13 +59,12 @@ impl VirtualCamera {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|e| format!("Failed to start ffmpeg: {}", e))?;
+            .map_err(|e| format!("Failed to start ffmpeg: {e}"))?;
         
-        // Wait for stream to be ready
-        std::thread::sleep(Duration::from_secs(2));
+        // Wait for stream to be ready - increased for v4l2loopback
+        std::thread::sleep(Duration::from_secs(5));
         
-        println!("[VirtualCamera] Started streaming to {} ({}x{} @ {} fps)", 
-                 device_path, width, height, fps);
+        println!("[VirtualCamera] Started streaming to {device_path} ({width}x{height} @ {fps} fps)");
         
         Ok(Self { 
             ffmpeg_process, 
@@ -78,18 +75,18 @@ impl VirtualCamera {
     
     /// Create a virtual camera with SMPTE color bars pattern
     pub fn new_with_color_bars(device_nr: u32, width: u32, height: u32, fps: u32) -> Result<Self, String> {
-        let device_path = format!("/dev/video{}", device_nr);
+        let device_path = format!("/dev/video{device_nr}");
         
         if !std::path::Path::new(&device_path).exists() {
-            return Err(format!("Device {} not found", device_path));
+            return Err(format!("Device {device_path} not found"));
         }
         
         let ffmpeg_process = Command::new("ffmpeg")
             .args([
                 "-re",
                 "-f", "lavfi",
-                "-i", &format!("smptebars=size={}x{}:rate={}", width, height, fps),
-                "-pix_fmt", "yuv420p",
+                "-i", &format!("smptebars=size={width}x{height}:rate={fps}"),
+                "-pix_fmt", "rgb24",
                 "-f", "v4l2",
                 &device_path
             ])
@@ -97,11 +94,11 @@ impl VirtualCamera {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|e| format!("Failed to start ffmpeg: {}", e))?;
+            .map_err(|e| format!("Failed to start ffmpeg: {e}"))?;
         
-        std::thread::sleep(Duration::from_secs(2));
+        std::thread::sleep(Duration::from_secs(5));
         
-        println!("[VirtualCamera] Started color bars on {}", device_path);
+        println!("[VirtualCamera] Started color bars on {device_path}");
         
         Ok(Self { 
             ffmpeg_process, 
@@ -124,8 +121,7 @@ impl VirtualCamera {
     pub fn is_running(&mut self) -> bool {
         self.ffmpeg_process.try_wait()
             .ok()
-            .map(|status| status.is_none())
-            .unwrap_or(false)
+            .is_some_and(|status| status.is_none())
     }
 }
 
@@ -142,7 +138,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore] // Only run with: cargo test -- --ignored
+    #[ignore = "Requires v4l2loopback setup"]
     fn test_virtual_camera_creation() {
         let result = VirtualCamera::new(10, 640, 480, 30);
         
@@ -154,7 +150,7 @@ mod tests {
                 // Drop will clean up
             }
             Err(e) => {
-                eprintln!("Skipping test - virtual camera not available: {}", e);
+                eprintln!("Skipping test - virtual camera not available: {e}");
             }
         }
     }

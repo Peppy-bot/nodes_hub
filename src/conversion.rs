@@ -2,6 +2,7 @@
 const JPEG_QUALITY: u8 = 85;
 
 /// Convert RGB data to BGR by swapping R and B channels
+#[must_use] 
 pub fn convert_rgb_to_bgr(mut rgb_data: Vec<u8>) -> Vec<u8> {
     for chunk in rgb_data.chunks_exact_mut(3) {
         chunk.swap(0, 2);
@@ -10,6 +11,13 @@ pub fn convert_rgb_to_bgr(mut rgb_data: Vec<u8>) -> Vec<u8> {
 }
 
 /// Encode RGB data as JPEG
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Image dimensions cause integer overflow
+/// - RGB data length doesn't match expected size for given dimensions
+/// - JPEG encoding fails
 pub fn encode_jpeg(rgb_data: &[u8], width: u32, height: u32) -> std::result::Result<Vec<u8>, String> {
     // Validate data length
     let expected_len = (width as usize)
@@ -33,7 +41,7 @@ pub fn encode_jpeg(rgb_data: &[u8], width: u32, height: u32) -> std::result::Res
             height,
             image::ExtendedColorType::Rgb8,
         )
-        .map_err(|e| format!("JPEG encoding failed: {}", e))?;
+        .map_err(|e| format!("JPEG encoding failed: {e}"))?;
 
     Ok(jpeg_data)
 }

@@ -215,11 +215,12 @@ cargo test -- --nocapture
 # Run specific test file
 cargo test --test encoding_tests
 
-# Run integration tests (requires v4l2loopback)
-cargo test --test integration_tests -- --ignored
+# Run integration tests (requires v4l2loopback - see tests/INTEGRATION_TESTS.md)
+# IMPORTANT: Use --test-threads=1 to avoid device conflicts
+cargo test --test integration_tests -- --ignored --test-threads=1
 
 # Run ALL tests including integration tests
-cargo test -- --include-ignored
+cargo test -- --include-ignored --test-threads=1
 
 # Run with code coverage (requires cargo-tarpaulin)
 cargo tarpaulin --out Html

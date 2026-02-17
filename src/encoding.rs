@@ -18,8 +18,7 @@ impl FromStr for Encoding {
             "bgr8" => Ok(Self::Bgr8),
             "mjpeg" => Ok(Self::Mjpeg),
             _ => Err(format!(
-                "Invalid encoding '{}'. Supported encodings are: rgb8, bgr8, mjpeg",
-                s
+                "Invalid encoding '{s}'. Supported encodings are: rgb8, bgr8, mjpeg"
             )),
         }
     }

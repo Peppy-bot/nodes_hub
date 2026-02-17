@@ -34,7 +34,7 @@ fn main() -> Result<()> {
                 video_params.encoding
             );
 
-            println!("[uvc_camera] Device: {}", device);
+            println!("[uvc_camera] Device: {device}");
 
             // Parse and validate encoding format
             let encoding = video_params.encoding.parse::<Encoding>()

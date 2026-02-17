@@ -26,7 +26,7 @@ if lsmod | grep -q v4l2loopback; then
     sudo modprobe -r v4l2loopback
 fi
 
-sudo modprobe v4l2loopback devices=1 video_nr=10 card_label="TestCamera"
+sudo modprobe v4l2loopback devices=1 video_nr=10 exclusive_caps=0 max_buffers=2 card_label="TestCamera"
 
 # Verify device creation
 echo
@@ -58,18 +58,20 @@ echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "   Creating module configuration..."
     echo "v4l2loopback" | sudo tee /etc/modules-load.d/v4l2loopback.conf
-    echo "options v4l2loopback devices=1 video_nr=10 card_label='TestCamera'" | \
+    echo "options v4l2loopback devices=1 video_nr=10 exclusive_caps=0 max_buffers=2 card_label='TestCamera'" | \
         sudo tee /etc/modprobe.d/v4l2loopback.conf
     echo "   ✓ v4l2loopback will load automatically on boot"
 fi
 
 echo
 echo "Setup complete! You can now run integration tests:"
-echo "  cargo test -- --include-ignored"
+echo "  cargo test -- --include-ignored --test-threads=1"
+echo
+echo "Note: Use --test-threads=1 to avoid device conflicts between tests"
 echo
 echo "To test manually:"
 echo "  # Start test pattern:"
-echo "  ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=30 -pix_fmt yuv420p -f v4l2 /dev/video10"
+echo "  ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=30 -pix_fmt rgb24 -f v4l2 /dev/video10"
 echo
 echo "  # View stream:"
 echo "  ffplay /dev/video10"

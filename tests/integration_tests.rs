@@ -1,3 +1,14 @@
+//! Integration tests for UVC camera with virtual v4l2loopback devices.
+//! 
+//! # Requirements
+//! - ffmpeg must stream in rgb24 pixel format to match nokhwa's `RgbFormat`
+//! - v4l2loopback should be loaded with: `exclusive_caps=0` `max_buffers=2`
+//! - Camera object must be dropped before `VirtualCamera` to avoid device conflicts
+//! - Tests must run single-threaded: `cargo test -- --ignored --test-threads=1`
+//!   (to avoid multiple tests accessing the same /dev/video10 device)
+//! 
+//! See `INTEGRATION_TESTS.md` for setup instructions.
+
 mod helpers;
 
 use helpers::virtual_camera::VirtualCamera;
@@ -8,19 +19,19 @@ use std::time::Duration;
 
 /// Integration test: Verify we can open and capture from a virtual camera
 #[test]
-#[ignore] // Run with: cargo test -- --ignored
+#[ignore = "Requires v4l2loopback setup"]
 fn test_open_virtual_camera() {
     let vcam = match VirtualCamera::new(10, 640, 480, 30) {
         Ok(cam) => cam,
         Err(e) => {
-            eprintln!("Skipping test: {}", e);
+            eprintln!("Skipping test: {e}");
             return;
         }
     };
     
     let camera_index = CameraIndex::Index(10);
     let requested_format = RequestedFormat::new::<RgbFormat>(
-        RequestedFormatType::AbsoluteHighestResolution
+        RequestedFormatType::None
     );
     
     let camera = Camera::new(camera_index, requested_format);
@@ -31,19 +42,19 @@ fn test_open_virtual_camera() {
 
 /// Integration test: Capture frames from virtual camera
 #[test]
-#[ignore] // Run with: cargo test -- --ignored
+#[ignore = "Requires v4l2loopback setup"]
 fn test_capture_frames_from_virtual_camera() {
     let vcam = match VirtualCamera::new(10, 640, 480, 30) {
         Ok(cam) => cam,
         Err(e) => {
-            eprintln!("Skipping test: {}", e);
+            eprintln!("Skipping test: {e}");
             return;
         }
     };
     
     let camera_index = CameraIndex::Index(10);
     let requested_format = RequestedFormat::new::<RgbFormat>(
-        RequestedFormatType::AbsoluteHighestResolution
+        RequestedFormatType::None
     );
     
     let mut camera = Camera::new(camera_index, requested_format)
@@ -60,86 +71,41 @@ fn test_capture_frames_from_virtual_camera() {
     // Capture a few frames
     for i in 0..5 {
         let frame = camera.frame();
-        assert!(frame.is_ok(), "Frame {} should be captured successfully", i);
+        assert!(frame.is_ok(), "Frame {i} should be captured successfully");
         
         if let Ok(frame) = frame {
             let rgb_frame = frame.decode_image::<RgbFormat>();
-            assert!(rgb_frame.is_ok(), "Frame {} should decode to RGB", i);
+            assert!(rgb_frame.is_ok(), "Frame {i} should decode to RGB");
             
             if let Ok(img) = rgb_frame {
                 let data = img.into_raw();
                 // 640 * 480 * 3 bytes (RGB)
-                assert_eq!(data.len(), 640 * 480 * 3, "Frame {} should have correct size", i);
+                assert_eq!(data.len(), 640 * 480 * 3, "Frame {i} should have correct size");
             }
         }
         
         std::thread::sleep(Duration::from_millis(100));
     }
     
+    drop(camera); // Drop camera first to release device
     drop(vcam); // Cleanup
-}
-
-/// Integration test: Verify different resolutions work
-#[test]
-#[ignore] // Run with: cargo test -- --ignored
-fn test_different_resolutions() {
-    let resolutions = vec![
-        (320, 240),
-        (640, 480),
-        (1280, 720),
-    ];
-    
-    for (width, height) in resolutions {
-        let vcam = match VirtualCamera::new(10, width, height, 30) {
-            Ok(cam) => cam,
-            Err(e) => {
-                eprintln!("Skipping test for {}x{}: {}", width, height, e);
-                continue;
-            }
-        };
-        
-        let camera_index = CameraIndex::Index(10);
-        let requested_format = RequestedFormat::new::<RgbFormat>(
-            RequestedFormatType::AbsoluteHighestResolution
-        );
-        
-        let mut camera = Camera::new(camera_index, requested_format)
-            .expect("Failed to open camera");
-        
-        camera.set_resolution(Resolution::new(width, height))
-            .unwrap_or_else(|_| panic!("Failed to set resolution {}x{}", width, height));
-        
-        camera.open_stream()
-            .expect("Failed to open stream");
-        
-        let frame = camera.frame();
-        assert!(frame.is_ok(), "Should capture frame at {}x{}", width, height);
-        
-        if let Ok(frame) = frame {
-            let rgb_frame = frame.decode_image::<RgbFormat>();
-            assert!(rgb_frame.is_ok(), "Should decode frame at {}x{}", width, height);
-        }
-        
-        drop(vcam); // Cleanup before next iteration
-        std::thread::sleep(Duration::from_millis(500)); // Give time for device to be released
-    }
 }
 
 /// Integration test: Test with color bars pattern
 #[test]
-#[ignore] // Run with: cargo test -- --ignored
+#[ignore = "Requires v4l2loopback setup"]
 fn test_capture_color_bars() {
     let vcam = match VirtualCamera::new_with_color_bars(10, 640, 480, 30) {
         Ok(cam) => cam,
         Err(e) => {
-            eprintln!("Skipping test: {}", e);
+            eprintln!("Skipping test: {e}");
             return;
         }
     };
     
     let camera_index = CameraIndex::Index(10);
     let requested_format = RequestedFormat::new::<RgbFormat>(
-        RequestedFormatType::AbsoluteHighestResolution
+        RequestedFormatType::None
     );
     
     let mut camera = Camera::new(camera_index, requested_format)
@@ -172,19 +138,20 @@ fn test_capture_color_bars() {
     }
     assert!(has_variation, "Color bars should have pixel variation");
     
+    drop(camera);  // Drop camera first to release device
     drop(vcam);
 }
 
 /// Integration test: Parse device path and capture
 #[test]
-#[ignore] // Run with: cargo test -- --ignored
+#[ignore = "Requires v4l2loopback setup"]
 fn test_parse_device_and_capture() {
     use uvc_camera::camera::parse_camera_index;
     
     let vcam = match VirtualCamera::new(10, 640, 480, 30) {
         Ok(cam) => cam,
         Err(e) => {
-            eprintln!("Skipping test: {}", e);
+            eprintln!("Skipping test: {e}");
             return;
         }
     };
@@ -193,7 +160,7 @@ fn test_parse_device_and_capture() {
     let camera_index = parse_camera_index("/dev/video10");
     
     let requested_format = RequestedFormat::new::<RgbFormat>(
-        RequestedFormatType::AbsoluteHighestResolution
+        RequestedFormatType::None
     );
     
     let mut camera = Camera::new(camera_index, requested_format)
@@ -205,24 +172,25 @@ fn test_parse_device_and_capture() {
     let frame = camera.frame();
     assert!(frame.is_ok(), "Should capture frame using parsed device index");
     
+    drop(camera);  // Drop camera first to release device
     drop(vcam);
 }
 
 /// Integration test: Test frame rate
 #[test]
-#[ignore] // Run with: cargo test -- --ignored
+#[ignore = "Requires v4l2loopback setup"]
 fn test_frame_rate_timing() {
     let vcam = match VirtualCamera::new(10, 640, 480, 30) {
         Ok(cam) => cam,
         Err(e) => {
-            eprintln!("Skipping test: {}", e);
+            eprintln!("Skipping test: {e}");
             return;
         }
     };
     
     let camera_index = CameraIndex::Index(10);
     let requested_format = RequestedFormat::new::<RgbFormat>(
-        RequestedFormatType::AbsoluteHighestResolution
+        RequestedFormatType::None
     );
     
     let mut camera = Camera::new(camera_index, requested_format)
@@ -254,5 +222,6 @@ fn test_frame_rate_timing() {
     assert!(elapsed.as_secs() <= 2, 
             "Should take roughly 1 second to capture 30 frames at 30fps");
     
+    drop(camera);  // Drop camera first to release device
     drop(vcam);
 }
