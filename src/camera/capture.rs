@@ -1,10 +1,9 @@
-use anyhow::{Context, Result};
 use peppygen::exposed_topics::video_stream::{self, MessageHeader};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 use tokio_util::sync::CancellationToken;
 
-use crate::types::{CameraConfig, FrameId};
+use crate::types::{CameraConfig, Error, FrameId, Result};
 use super::device::CameraDevice;
 use crate::pipeline;
 
@@ -34,22 +33,33 @@ pub async fn run_camera_capture_loop<C: CameraDevice + 'static>(
     let frame_rate = config.frame_rate.as_u16();
     let frame_duration = Duration::from_millis(1000 / u64::from(frame_rate));
     
-    // Run the entire camera loop in a blocking task
+    // Open and configure camera (blocking operation, done before the loop)
+    println!("[uvc_camera] Opening camera {}...", config.device_path);
+    
+    let resolution = config.resolution;
+    let encoding = config.encoding;
+    let frame_rate = config.frame_rate.as_u16();
+    
+    camera = match tokio::task::spawn_blocking(move || {
+        camera.open(&config)?;
+        Ok::<_, Error>(camera)
+    })
+    .await
+    {
+        Err(join_err) => return Err(Error::ThreadPanic(format!("Camera open task panicked: {}", join_err))),
+        Ok(result) => result?,
+    };
+    
+    println!(
+        "[uvc_camera] Camera configured: {}x{} @ {} fps, encoding: {}",
+        resolution.width(),
+        resolution.height(),
+        frame_rate,
+        encoding
+    );
+
+    // Run the capture loop in a blocking task
     tokio::task::spawn_blocking(move || {
-        println!("[uvc_camera] Opening camera {}...", config.device_path);
-        
-        // Open and configure camera
-        camera.open(&config.device_path, config.resolution, frame_rate)
-            .with_context(|| format!("Failed to open camera {}", config.device_path))?;
-
-        println!(
-            "[uvc_camera] Camera configured: {}x{} @ {} fps, encoding: {}",
-            config.resolution.width(),
-            config.resolution.height(),
-            frame_rate,
-            config.encoding
-        );
-
         let mut frame_id = FrameId::default();
         let mut last_print_time = Instant::now();
 
@@ -70,7 +80,7 @@ pub async fn run_camera_capture_loop<C: CameraDevice + 'static>(
             };
 
             // Process frame (convert encoding if needed)
-            let frame = match pipeline::process_frame(raw_frame, frame_id, config.encoding) {
+            let frame = match pipeline::process_frame(raw_frame, frame_id, encoding) {
                 Ok(frame) => frame,
                 Err(e) => {
                     tracing::warn!("Failed to process frame: {}", e);
@@ -112,10 +122,12 @@ pub async fn run_camera_capture_loop<C: CameraDevice + 'static>(
             std::thread::sleep(frame_duration);
         }
         
-        Ok(())
+        Ok::<(), Error>(())
     })
     .await
-    .context("Camera thread panicked")?
+    .map_err(|join_err| Error::ThreadPanic(format!("Camera capture task panicked: {}", join_err)))??;
+    
+    Ok(())
 }
 
 /// Helper function to create and run the capture loop with Nokhwa camera

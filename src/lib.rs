@@ -2,12 +2,10 @@
 
 // New modular architecture
 pub mod camera;
-pub mod config;
 pub mod pipeline;
 pub mod types;
 
-// Old modules (kept for backward compatibility during migration)
+// Old modules (kept for backward compatibility)
 pub mod conversion;
 pub mod encoding;
-pub mod old_camera;
 pub mod services;

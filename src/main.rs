@@ -3,10 +3,8 @@ use peppygen::{NodeBuilder, Parameters, Result, StandaloneConfig};
 use std::sync::Arc;
 
 use uvc_camera::camera::run_nokhwa_capture_loop;
-use uvc_camera::encoding::Encoding as OldEncoding;
-use uvc_camera::old_camera::CameraParameters;
 use uvc_camera::services::listen_for_video_stream_info_requests;
-use uvc_camera::types::{CameraConfigBuilder, Encoding, Resolution};
+use uvc_camera::types::{CameraConfigBuilder, Encoding};
 
 fn main() -> Result<()> {
     // Example configuration for standalone execution
@@ -38,19 +36,11 @@ fn main() -> Result<()> {
 
             println!("[uvc_camera] Device: {device}");
 
-            // Parse and validate encoding format (both old and new)
+            // Parse and validate encoding format
             let encoding = video_params.encoding.parse::<Encoding>()
                 .unwrap_or_else(|e| {
                     panic!("Invalid encoding format '{}': {}", video_params.encoding, e)
                 });
-            
-            let old_encoding = video_params.encoding.parse::<OldEncoding>()
-                .unwrap_or_else(|e| {
-                    panic!("Invalid encoding format '{}': {}", video_params.encoding, e)
-                });
-
-            // Validate resolution (for early error detection)
-            let _resolution = Resolution::new(video_params.resolution.width, video_params.resolution.height);
 
             // Create camera configuration
             let camera_config = CameraConfigBuilder::new()
@@ -61,19 +51,11 @@ fn main() -> Result<()> {
                 .build()
                 .unwrap_or_else(|e| panic!("Failed to create camera config: {}", e));
 
-            // Legacy parameters for services (to be migrated)
-            let camera_params = CameraParameters {
-                resolution: video_params.resolution.clone(),
-                frame_rate: video_params.frame_rate,
-                encoding: old_encoding,
-                device_path: device,
-            };
-
             // Service to expose camera info
             let service_node_runner = Arc::clone(&node_runner);
-            let service_params = camera_params.clone();
+            let service_config = camera_config.clone();
             tokio::spawn(async move {
-                listen_for_video_stream_info_requests(service_node_runner, service_params).await;
+                listen_for_video_stream_info_requests(service_node_runner, service_config).await;
             });
 
             // Long running capture task

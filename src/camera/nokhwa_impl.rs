@@ -4,7 +4,7 @@ use nokhwa::utils::{
 };
 use nokhwa::Camera;
 
-use crate::types::{Error, RawFrame, Resolution, Result};
+use crate::types::{CameraConfig, Error, Frame, Result};
 use super::device::CameraDevice;
 
 /// Nokhwa-based camera implementation
@@ -36,25 +36,26 @@ impl Default for NokhwaCamera {
 }
 
 impl CameraDevice for NokhwaCamera {
-    fn open(&mut self, device_path: &str, resolution: Resolution, frame_rate: u16) -> Result<()> {
-        let index = parse_camera_index(device_path)?;
+    fn open(&mut self, config: &CameraConfig) -> Result<()> {
+        let index = parse_camera_index(&config.device_path)?;
         
+        let frame_rate = config.frame_rate.as_u16();
         let requested = RequestedFormat::new::<RgbFormat>(RequestedFormatType::Closest(
             CameraFormat::new(
-                NokhwaResolution::new(resolution.width_u32(), resolution.height_u32()),
+                NokhwaResolution::new(config.resolution.width_u32(), config.resolution.height_u32()),
                 FrameFormat::RAWRGB,
                 u32::from(frame_rate),
             ),
         ));
         
         let camera = Camera::new(CameraIndex::Index(index), requested)
-            .map_err(|e| Error::Camera(format!("Failed to open camera {}: {}", device_path, e)))?;
+            .map_err(|e| Error::Camera(format!("Failed to open camera {}: {}", config.device_path, e)))?;
         
         self.camera = Some(SendableCamera(camera));
         Ok(())
     }
     
-    fn capture_frame(&mut self) -> Result<RawFrame> {
+    fn capture_frame(&mut self) -> Result<Frame> {
         let camera = self.camera.as_mut()
             .ok_or_else(|| Error::Camera("Camera not open".to_string()))?;
         
@@ -66,7 +67,7 @@ impl CameraDevice for NokhwaCamera {
         let resolution = frame.resolution();
         let timestamp = std::time::Instant::now();
         
-        Ok(RawFrame::new(
+        Ok(Frame::from_capture(
             buffer,
             resolution.width_x as u16,
             resolution.height_y as u16,
@@ -95,13 +96,21 @@ mod tests {
     use super::*;
     
     #[test]
-    fn test_parse_camera_index() {
+    fn test_parse_camera_index_valid() {
         assert_eq!(parse_camera_index("/dev/video0").unwrap(), 0);
         assert_eq!(parse_camera_index("/dev/video1").unwrap(), 1);
         assert_eq!(parse_camera_index("/dev/video42").unwrap(), 42);
-        
+        assert_eq!(parse_camera_index("/dev/video1000").unwrap(), 1000);
+    }
+    
+    #[test]
+    fn test_parse_camera_index_invalid() {
+        // Only /dev/videoN format is accepted
         assert!(parse_camera_index("/dev/video").is_err());
         assert!(parse_camera_index("/dev/camera0").is_err());
         assert!(parse_camera_index("video0").is_err());
+        assert!(parse_camera_index("0").is_err());
+        assert!(parse_camera_index("").is_err());
+        assert!(parse_camera_index("invalid").is_err());
     }
 }

@@ -31,50 +31,9 @@ impl From<FrameId> for u32 {
     }
 }
 
-/// Raw RGB frame data from camera (always RGB8 from nokhwa)
+/// Frame metadata
 #[derive(Debug, Clone)]
-pub struct RawFrame {
-    data: Vec<u8>,
-    width: u16,
-    height: u16,
-    timestamp: Instant,
-}
-
-impl RawFrame {
-    pub fn new(data: Vec<u8>, width: u16, height: u16, timestamp: Instant) -> Self {
-        Self {
-            data,
-            width,
-            height,
-            timestamp,
-        }
-    }
-    
-    pub fn data(&self) -> &[u8] {
-        &self.data
-    }
-    
-    pub fn width(&self) -> u16 {
-        self.width
-    }
-    
-    pub fn height(&self) -> u16 {
-        self.height
-    }
-    
-    pub fn timestamp(&self) -> Instant {
-        self.timestamp
-    }
-    
-    pub fn size(&self) -> usize {
-        self.data.len()
-    }
-}
-
-/// Processed frame ready for emission
-#[derive(Debug)]
-pub struct Frame {
-    data: Vec<u8>,
+pub struct FrameInfo {
     width: u16,
     height: u16,
     frame_id: FrameId,
@@ -82,9 +41,8 @@ pub struct Frame {
     encoding: Encoding,
 }
 
-impl Frame {
+impl FrameInfo {
     pub fn new(
-        data: Vec<u8>,
         width: u16,
         height: u16,
         frame_id: FrameId,
@@ -92,17 +50,12 @@ impl Frame {
         encoding: Encoding,
     ) -> Self {
         Self {
-            data,
             width,
             height,
             frame_id,
             timestamp,
             encoding,
         }
-    }
-    
-    pub fn data(&self) -> &[u8] {
-        &self.data
     }
     
     pub fn width(&self) -> u16 {
@@ -131,5 +84,105 @@ impl Frame {
     
     pub fn encoding(&self) -> Encoding {
         self.encoding
+    }
+    
+    /// Create a new FrameInfo with updated encoding
+    pub fn with_encoding(&self, encoding: Encoding) -> Self {
+        Self {
+            encoding,
+            ..*self
+        }
+    }
+    
+    /// Update the frame ID
+    pub fn with_frame_id(&self, frame_id: FrameId) -> Self {
+        Self {
+            frame_id,
+            ..*self
+        }
+    }
+}
+
+/// Frame with data and metadata
+#[derive(Debug, Clone)]
+pub struct Frame {
+    data: Vec<u8>,
+    info: FrameInfo,
+}
+
+impl Frame {
+    pub fn new(data: Vec<u8>, info: FrameInfo) -> Self {
+        Self { data, info }
+    }
+    
+    /// Create a frame from raw camera capture (RGB8 encoding)
+    pub fn from_capture(
+        data: Vec<u8>,
+        width: u16,
+        height: u16,
+        timestamp: Instant,
+    ) -> Self {
+        Self {
+            data,
+            info: FrameInfo::new(
+                width,
+                height,
+                FrameId::default(),
+                timestamp,
+                Encoding::Rgb8,
+            ),
+        }
+    }
+    
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+    
+    pub fn info(&self) -> &FrameInfo {
+        &self.info
+    }
+    
+    pub fn width(&self) -> u16 {
+        self.info.width()
+    }
+    
+    pub fn height(&self) -> u16 {
+        self.info.height()
+    }
+    
+    pub fn width_u32(&self) -> u32 {
+        self.info.width_u32()
+    }
+    
+    pub fn height_u32(&self) -> u32 {
+        self.info.height_u32()
+    }
+    
+    pub fn frame_id(&self) -> FrameId {
+        self.info.frame_id()
+    }
+    
+    pub fn timestamp(&self) -> Instant {
+        self.info.timestamp()
+    }
+    
+    pub fn encoding(&self) -> Encoding {
+        self.info.encoding()
+    }
+    
+    /// Convert this frame to a different encoding with new data
+    pub fn with_encoding(self, data: Vec<u8>, encoding: Encoding) -> Self {
+        Self {
+            data,
+            info: self.info.with_encoding(encoding),
+        }
+    }
+    
+    /// Update frame ID
+    pub fn with_frame_id(self, frame_id: FrameId) -> Self {
+        Self {
+            data: self.data,
+            info: self.info.with_frame_id(frame_id),
+        }
     }
 }

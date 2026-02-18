@@ -1,14 +1,14 @@
-use crate::types::{RawFrame, Resolution, Result};
+use crate::types::{CameraConfig, Frame, Result};
 
 /// Abstraction for camera devices
 /// 
 /// This trait enables testing by allowing mock implementations
 pub trait CameraDevice: Send {
     /// Open and configure the camera
-    fn open(&mut self, device_path: &str, resolution: Resolution, frame_rate: u16) -> Result<()>;
+    fn open(&mut self, config: &CameraConfig) -> Result<()>;
     
-    /// Capture a single frame
-    fn capture_frame(&mut self) -> Result<RawFrame>;
+    /// Capture a single frame (always RGB8 from camera)
+    fn capture_frame(&mut self) -> Result<Frame>;
     
     /// Check if the camera is open
     fn is_open(&self) -> bool;
@@ -23,7 +23,8 @@ pub mod mock {
     pub struct MockCamera {
         is_open: bool,
         frame_counter: u32,
-        resolution: Resolution,
+        width: u16,
+        height: u16,
     }
     
     impl MockCamera {
@@ -31,14 +32,15 @@ pub mod mock {
             Self {
                 is_open: false,
                 frame_counter: 0,
-                resolution: Resolution::default(),
+                width: 640,
+                height: 480,
             }
         }
         
         /// Generate a test pattern (RGB gradient)
         fn generate_test_frame(&self) -> Vec<u8> {
-            let width = self.resolution.width() as usize;
-            let height = self.resolution.height() as usize;
+            let width = self.width as usize;
+            let height = self.height as usize;
             let mut data = Vec::with_capacity(width * height * 3);
             
             for y in 0..height {
@@ -61,23 +63,24 @@ pub mod mock {
     }
     
     impl CameraDevice for MockCamera {
-        fn open(&mut self, _device_path: &str, resolution: Resolution, _frame_rate: u16) -> Result<()> {
-            self.resolution = resolution;
+        fn open(&mut self, config: &CameraConfig) -> Result<()> {
+            self.width = config.resolution.width();
+            self.height = config.resolution.height();
             self.is_open = true;
             Ok(())
         }
         
-        fn capture_frame(&mut self) -> Result<RawFrame> {
+        fn capture_frame(&mut self) -> Result<Frame> {
             if !self.is_open {
                 return Err(Error::Camera("Camera not open".to_string()));
             }
             
             self.frame_counter += 1;
             
-            Ok(RawFrame::new(
+            Ok(Frame::from_capture(
                 self.generate_test_frame(),
-                self.resolution.width(),
-                self.resolution.height(),
+                self.width,
+                self.height,
                 std::time::Instant::now(),
             ))
         }
