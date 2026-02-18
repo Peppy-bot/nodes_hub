@@ -146,7 +146,7 @@ fn test_capture_color_bars() {
 #[test]
 #[ignore = "Requires v4l2loopback setup"]
 fn test_parse_device_and_capture() {
-    use uvc_camera::camera::parse_camera_index;
+    use uvc_camera::old_camera::parse_camera_index;
     
     let vcam = match VirtualCamera::new(10, 640, 480, 30) {
         Ok(cam) => cam,

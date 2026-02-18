@@ -1,5 +1,5 @@
 use nokhwa::utils::CameraIndex;
-use uvc_camera::camera::parse_camera_index;
+use uvc_camera::old_camera::parse_camera_index;
 
 #[test]
 fn test_parse_camera_index_dev_video() {

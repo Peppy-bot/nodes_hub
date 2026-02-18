@@ -1,7 +1,7 @@
 use peppygen::exposed_services::video_stream_info;
 use std::sync::Arc;
 
-use crate::camera::CameraParameters;
+use crate::old_camera::CameraParameters;
 
 /// Listen for and handle video stream info service requests
 pub async fn listen_for_video_stream_info_requests(
