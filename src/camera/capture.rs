@@ -22,7 +22,7 @@ const STATUS_PRINT_INTERVAL_SECS: u64 = 3;
 /// Returns an error if:
 /// - Camera cannot be opened or configured
 /// - Thread panics during execution
-pub async fn run_camera_capture_loop<C: CameraDevice + 'static>(
+async fn run_camera_capture_loop<C: CameraDevice + 'static>(
     mut camera: C,
     config: CameraConfig,
     node_runner: Arc<peppygen::NodeRunner>,
@@ -101,8 +101,8 @@ pub async fn run_camera_capture_loop<C: CameraDevice + 'static>(
                         &node_runner,
                         header,
                         frame.encoding().to_string(),
-                        frame.width_u32(),
-                        frame.height_u32(),
+                        frame.width(),
+                        frame.height(),
                         frame.data().to_vec(),
                     )
                     .await {

@@ -23,8 +23,8 @@ pub mod mock {
     pub struct MockCamera {
         is_open: bool,
         frame_counter: u32,
-        width: u16,
-        height: u16,
+        width: u32,
+        height: u32,
     }
     
     impl MockCamera {

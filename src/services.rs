@@ -11,8 +11,8 @@ pub async fn listen_for_video_stream_info_requests(
     loop {
         if let Err(e) = video_stream_info::handle_next_request(&node_runner, |_request| {
             Ok(video_stream_info::Response::new(
-                config.resolution.width_u32(),
-                config.resolution.height_u32(),
+                config.resolution.width(),
+                config.resolution.height(),
                 u8::try_from(config.frame_rate.as_u16()).unwrap_or(u8::MAX),
                 config.encoding.to_string(),
             ))

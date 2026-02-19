@@ -34,8 +34,8 @@ impl From<FrameId> for u32 {
 /// Frame metadata
 #[derive(Debug, Clone)]
 pub struct FrameInfo {
-    width: u16,
-    height: u16,
+    width: u32,
+    height: u32,
     frame_id: FrameId,
     timestamp: Instant,
     encoding: Encoding,
@@ -43,8 +43,8 @@ pub struct FrameInfo {
 
 impl FrameInfo {
     pub fn new(
-        width: u16,
-        height: u16,
+        width: u32,
+        height: u32,
         frame_id: FrameId,
         timestamp: Instant,
         encoding: Encoding,
@@ -58,20 +58,12 @@ impl FrameInfo {
         }
     }
     
-    pub fn width(&self) -> u16 {
+    pub fn width(&self) -> u32 {
         self.width
     }
     
-    pub fn height(&self) -> u16 {
+    pub fn height(&self) -> u32 {
         self.height
-    }
-    
-    pub fn width_u32(&self) -> u32 {
-        u32::from(self.width)
-    }
-    
-    pub fn height_u32(&self) -> u32 {
-        u32::from(self.height)
     }
     
     pub fn frame_id(&self) -> FrameId {
@@ -118,8 +110,8 @@ impl Frame {
     /// Create a frame from raw camera capture (RGB8 encoding)
     pub fn from_capture(
         data: Vec<u8>,
-        width: u16,
-        height: u16,
+        width: u32,
+        height: u32,
         timestamp: Instant,
     ) -> Self {
         Self {
@@ -142,20 +134,12 @@ impl Frame {
         &self.info
     }
     
-    pub fn width(&self) -> u16 {
+    pub fn width(&self) -> u32 {
         self.info.width()
     }
     
-    pub fn height(&self) -> u16 {
+    pub fn height(&self) -> u32 {
         self.info.height()
-    }
-    
-    pub fn width_u32(&self) -> u32 {
-        self.info.width_u32()
-    }
-    
-    pub fn height_u32(&self) -> u32 {
-        self.info.height_u32()
     }
     
     pub fn frame_id(&self) -> FrameId {

@@ -5,7 +5,5 @@ pub mod camera;
 pub mod pipeline;
 pub mod types;
 
-// Old modules (kept for backward compatibility)
-pub mod conversion;
-pub mod encoding;
+// Services
 pub mod services;

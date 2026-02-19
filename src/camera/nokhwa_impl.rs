@@ -42,7 +42,7 @@ impl CameraDevice for NokhwaCamera {
         let frame_rate = config.frame_rate.as_u16();
         let requested = RequestedFormat::new::<RgbFormat>(RequestedFormatType::Closest(
             CameraFormat::new(
-                NokhwaResolution::new(config.resolution.width_u32(), config.resolution.height_u32()),
+                NokhwaResolution::new(config.resolution.width(), config.resolution.height()),
                 FrameFormat::RAWRGB,
                 u32::from(frame_rate),
             ),
@@ -69,8 +69,8 @@ impl CameraDevice for NokhwaCamera {
         
         Ok(Frame::from_capture(
             buffer,
-            resolution.width_x as u16,
-            resolution.height_y as u16,
+            resolution.width_x,
+            resolution.height_y,
             timestamp,
         ))
     }

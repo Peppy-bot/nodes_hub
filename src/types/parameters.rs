@@ -81,29 +81,21 @@ mod tests {
 /// Resolution - no artificial limits, hardware determines valid values
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Resolution {
-    width: u16,
-    height: u16,
+    width: u32,
+    height: u32,
 }
 
 impl Resolution {
-    pub fn new(width: u16, height: u16) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
     
-    pub fn width(&self) -> u16 {
+    pub fn width(&self) -> u32 {
         self.width
     }
     
-    pub fn height(&self) -> u16 {
+    pub fn height(&self) -> u32 {
         self.height
-    }
-    
-    pub fn width_u32(&self) -> u32 {
-        u32::from(self.width)
-    }
-    
-    pub fn height_u32(&self) -> u32 {
-        u32::from(self.height)
     }
 }
 
@@ -142,8 +134,8 @@ impl CameraConfig {
 #[derive(Default)]
 pub struct CameraConfigBuilder {
     device_path: Option<String>,
-    width: Option<u16>,
-    height: Option<u16>,
+    width: Option<u32>,
+    height: Option<u32>,
     frame_rate: Option<u16>,
     encoding: Option<Encoding>,
 }
@@ -158,7 +150,7 @@ impl CameraConfigBuilder {
         self
     }
     
-    pub fn resolution(mut self, width: u16, height: u16) -> Self {
+    pub fn resolution(mut self, width: u32, height: u32) -> Self {
         self.width = Some(width);
         self.height = Some(height);
         self
