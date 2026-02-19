@@ -142,11 +142,13 @@ fn test_capture_color_bars() {
     drop(vcam);
 }
 
-/// Integration test: Parse device path and capture
+/// Integration test: Capture from virtual camera using NokhwaCamera
 #[test]
 #[ignore = "Requires v4l2loopback setup"]
-fn test_parse_device_and_capture() {
-    use uvc_camera::camera::parse_camera_index;
+fn test_nokhwa_camera_end_to_end() {
+    use uvc_camera::camera::NokhwaCamera;
+    use uvc_camera::camera::CameraDevice;
+    use uvc_camera::types::{CameraConfig, Encoding, FrameRate, Resolution};
     
     let vcam = match VirtualCamera::new(10, 640, 480, 30) {
         Ok(cam) => cam,
@@ -156,23 +158,29 @@ fn test_parse_device_and_capture() {
         }
     };
     
-    // Test that our parsing function works with the actual device
-    let camera_index = parse_camera_index("/dev/video10");
+    // Test end-to-end: open camera and capture frame using our API
+    let mut camera = NokhwaCamera::new();
+    let config = CameraConfig {
+        device_path: "/dev/video10".to_string(),
+        resolution: Resolution::new(640, 480),
+        frame_rate: FrameRate::new(30),
+        encoding: Encoding::Rgb8,
+    };
     
-    let requested_format = RequestedFormat::new::<RgbFormat>(
-        RequestedFormatType::None
-    );
+    camera.open(&config)
+        .expect("Failed to open camera");
     
-    let mut camera = Camera::new(camera_index, requested_format)
-        .expect("Failed to open camera with parsed index");
+    assert!(camera.is_open(), "Camera should be open");
     
-    camera.open_stream()
-        .expect("Failed to open stream");
+    let frame = camera.capture_frame();
+    assert!(frame.is_ok(), "Should capture frame from virtual camera");
     
-    let frame = camera.frame();
-    assert!(frame.is_ok(), "Should capture frame using parsed device index");
+    let frame = frame.unwrap();
+    assert_eq!(frame.width(), 640);
+    assert_eq!(frame.height(), 480);
+    assert!(!frame.data().is_empty(), "Frame data should not be empty");
     
-    drop(camera);  // Drop camera first to release device
+    drop(camera);
     drop(vcam);
 }
 

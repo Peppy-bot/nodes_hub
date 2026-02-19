@@ -2,9 +2,9 @@ use peppygen::parameters::video::{Resolution as VideoResolution, Video};
 use peppygen::{NodeBuilder, Parameters, Result, StandaloneConfig};
 use std::sync::Arc;
 
-use uvc_camera::camera::{run_camera_capture_loop, CameraParameters};
-use uvc_camera::encoding::Encoding;
+use uvc_camera::camera::run_nokhwa_capture_loop;
 use uvc_camera::services::listen_for_video_stream_info_requests;
+use uvc_camera::types::{CameraConfigBuilder, Encoding};
 
 fn main() -> Result<()> {
     // Example configuration for standalone execution
@@ -42,25 +42,26 @@ fn main() -> Result<()> {
                     panic!("Invalid encoding format '{}': {}", video_params.encoding, e)
                 });
 
-            // Create camera parameters
-            let camera_params = CameraParameters {
-                resolution: video_params.resolution.clone(),
-                frame_rate: video_params.frame_rate,
-                encoding,
-                device_path: device,
-            };
+            // Create camera configuration
+            let camera_config = CameraConfigBuilder::new()
+                .device_path(device.clone())
+                .resolution(video_params.resolution.width, video_params.resolution.height)
+                .frame_rate(video_params.frame_rate)
+                .encoding(encoding)
+                .build()
+                .unwrap_or_else(|e| panic!("Failed to create camera config: {}", e));
 
             // Service to expose camera info
             let service_node_runner = Arc::clone(&node_runner);
-            let service_params = camera_params.clone();
+            let service_config = camera_config.clone();
             tokio::spawn(async move {
-                listen_for_video_stream_info_requests(service_node_runner, service_params).await;
+                listen_for_video_stream_info_requests(service_node_runner, service_config).await;
             });
 
             // Long running capture task
             let cancel_token = node_runner.cancellation_token().clone();
             tokio::spawn(async move {
-                if let Err(e) = run_camera_capture_loop(node_runner, camera_params, cancel_token).await
+                if let Err(e) = run_nokhwa_capture_loop(camera_config, node_runner, cancel_token).await
                 {
                     tracing::error!("Camera capture loop error: {e:?}");
                 }
