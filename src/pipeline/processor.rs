@@ -10,12 +10,6 @@ fn rgb_to_bgr(data: &[u8]) -> Vec<u8> {
         .collect()
 }
 
-/// Convert BGR8 to RGB8 by swapping B and R channels
-fn bgr_to_rgb(data: &[u8]) -> Vec<u8> {
-    // Same operation as rgb_to_bgr
-    rgb_to_bgr(data)
-}
-
 /// Encode RGB8 data as JPEG
 fn encode_jpeg(data: &[u8], width: u32, height: u32, _quality: u8) -> Result<Vec<u8>> {
     use image::{ImageBuffer, Rgb};
@@ -33,54 +27,23 @@ fn encode_jpeg(data: &[u8], width: u32, height: u32, _quality: u8) -> Result<Vec
     Ok(jpeg_data)
 }
 
-/// Convert frame data to target encoding
-fn convert_frame(data: &[u8], width: u32, height: u32, source: Encoding, target: Encoding, jpeg_quality: u8) -> Result<Vec<u8>> {
-    match (source, target) {
-        // No conversion needed
-        (Encoding::Rgb8, Encoding::Rgb8) => Ok(data.to_vec()),
-        (Encoding::Bgr8, Encoding::Bgr8) => Ok(data.to_vec()),
-        (Encoding::Mjpeg, Encoding::Mjpeg) => Ok(data.to_vec()),
-        
-        // RGB <-> BGR conversion
-        (Encoding::Rgb8, Encoding::Bgr8) => Ok(rgb_to_bgr(data)),
-        (Encoding::Bgr8, Encoding::Rgb8) => Ok(bgr_to_rgb(data)),
-        
-        // RGB -> MJPEG
-        (Encoding::Rgb8, Encoding::Mjpeg) => encode_jpeg(data, width, height, jpeg_quality),
-        
-        // BGR -> MJPEG (convert to RGB first)
-        (Encoding::Bgr8, Encoding::Mjpeg) => {
-            let rgb = bgr_to_rgb(data);
-            encode_jpeg(&rgb, width, height, jpeg_quality)
-        }
-        
-        // Unsupported conversions from MJPEG
-        (Encoding::Mjpeg, Encoding::Rgb8) | (Encoding::Mjpeg, Encoding::Bgr8) => {
-            Err(Error::EncodingError(
-                "Decoding MJPEG is not supported".to_string(),
-            ))
-        }
-    }
-}
-
 /// Process a raw frame from the camera into the target encoding
 pub fn process_frame(
     frame: Frame,
     frame_id: FrameId,
     target_encoding: Encoding,
 ) -> Result<Frame> {
-    // Source encoding is always RGB8 from camera
-    let source_encoding = Encoding::Rgb8;
-    
-    // Convert if needed
-    let data = convert_frame(
-        frame.data(),
-        frame.width(),
-        frame.height(),
-        source_encoding,
-        target_encoding,
-        JPEG_QUALITY,
-    )?;
+    // Convert RGB8 from camera to target encoding
+    let data = match target_encoding {
+        // No conversion needed
+        Encoding::Rgb8 => frame.data().to_vec(),
+        
+        // RGB -> BGR conversion
+        Encoding::Bgr8 => rgb_to_bgr(frame.data()),
+        
+        // RGB -> MJPEG
+        Encoding::Mjpeg => encode_jpeg(frame.data(), frame.width(), frame.height(), JPEG_QUALITY)?,
+    };
     
     Ok(frame.with_encoding(data, target_encoding).with_frame_id(frame_id))
 }
@@ -128,33 +91,9 @@ mod tests {
         let rgb = vec![255, 0, 0, 0, 255, 0, 0, 0, 255];
         let bgr = rgb_to_bgr(&rgb);
         assert_eq!(bgr, vec![0, 0, 255, 0, 255, 0, 255, 0, 0]);
-    }
-    
-    #[test]
-    fn test_bgr_to_rgb() {
-        let bgr = vec![0, 0, 255, 0, 255, 0, 255, 0, 0];
-        let rgb = bgr_to_rgb(&bgr);
-        assert_eq!(rgb, vec![255, 0, 0, 0, 255, 0, 0, 0, 255]);
-    }
-    
-    #[test]
-    fn test_convert_frame_no_conversion() {
-        let data = vec![1, 2, 3, 4, 5, 6];
-        let result = convert_frame(&data, 2, 1, Encoding::Rgb8, Encoding::Rgb8, 85).unwrap();
-        assert_eq!(result, data);
-    }
-    
-    #[test]
-    fn test_convert_frame_rgb_to_bgr() {
-        let rgb = vec![255, 0, 0, 0, 255, 0];
-        let result = convert_frame(&rgb, 2, 1, Encoding::Rgb8, Encoding::Bgr8, 85).unwrap();
-        assert_eq!(result, vec![0, 0, 255, 0, 255, 0]);
-    }
-    
-    #[test]
-    fn test_mjpeg_decode_unsupported() {
-        let data = vec![0xFF, 0xD8]; // JPEG header
-        let result = convert_frame(&data, 1, 1, Encoding::Mjpeg, Encoding::Rgb8, 85);
-        assert!(result.is_err());
+        
+        // Verify the operation is reversible (BGR to RGB is the same)
+        let rgb_again = rgb_to_bgr(&bgr);
+        assert_eq!(rgb_again, rgb);
     }
 }
