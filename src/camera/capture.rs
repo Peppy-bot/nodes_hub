@@ -29,9 +29,6 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
     cancel_token: CancellationToken,
 ) -> Result<()> {
     println!("[uvc_camera] Starting camera capture loop...");
-
-    let frame_rate = config.frame_rate.as_u16();
-    let frame_duration = Duration::from_millis(1000 / u64::from(frame_rate));
     
     // Open and configure camera (blocking operation, done before the loop)
     println!("[uvc_camera] Opening camera {}...", config.device_path);
@@ -62,6 +59,11 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
     tokio::task::spawn_blocking(move || {
         let mut frame_id = FrameId::default();
         let mut last_print_time = Instant::now();
+        
+        // Calculate target frame duration using nanoseconds for high FPS support
+        let frame_duration_ns = 1_000_000_000u64 / u64::from(frame_rate);
+        let target_frame_duration = Duration::from_nanos(frame_duration_ns);
+        let mut next_frame_time = Instant::now() + target_frame_duration;
 
         loop {
             if cancel_token.is_cancelled() {
@@ -118,8 +120,12 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
 
             frame_id = frame_id.next();
 
-            // Rate limiting to target FPS
-            std::thread::sleep(frame_duration);
+            // Rate limiting using accumulator to prevent drift
+            let now = Instant::now();
+            if next_frame_time > now {
+                std::thread::sleep(next_frame_time - now);
+            }
+            next_frame_time += target_frame_duration;
         }
         
         Ok::<(), Error>(())
