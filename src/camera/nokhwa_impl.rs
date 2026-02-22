@@ -1,11 +1,24 @@
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{
-    CameraFormat, CameraIndex, FrameFormat, RequestedFormat, RequestedFormatType, Resolution as NokhwaResolution,
+    CameraFormat, CameraIndex, ControlValueSetter, FrameFormat, KnownCameraControl,
+    RequestedFormat, RequestedFormatType, Resolution as NokhwaResolution,
 };
 use nokhwa::Camera;
 
+use crate::camera::controls::{
+    CameraControlRequest, ControlResult, ExposureMode, WhiteBalanceMode,
+};
 use crate::types::{CameraConfig, Error, Frame, Result};
 use super::device::CameraDevice;
+
+use v4l2_sys_mit::{
+    V4L2_CID_EXPOSURE_AUTO, V4L2_CID_EXPOSURE_ABSOLUTE, V4L2_CID_AUTO_WHITE_BALANCE
+};
+
+/// V4L2_EXPOSURE_AUTO = 0 (camera controls exposure automatically)
+const V4L2_EXPOSURE_AUTO_VALUE: i64 = 0;
+/// V4L2_EXPOSURE_MANUAL = 1 (manual exposure value via V4L2_CID_EXPOSURE_ABSOLUTE)
+const V4L2_EXPOSURE_MANUAL_VALUE: i64 = 1;
 
 /// Nokhwa-based camera implementation
 /// 
@@ -77,6 +90,137 @@ impl CameraDevice for NokhwaCamera {
     
     fn is_open(&self) -> bool {
         self.camera.is_some()
+    }
+
+    fn apply_control(&mut self, request: &CameraControlRequest) -> ControlResult {
+        let camera = match self.camera.as_mut() {
+            Some(c) => &mut c.0,
+            None => return ControlResult::err("Camera not open"),
+        };
+
+        match request {
+            CameraControlRequest::SetBrightness { value } => {
+                set_integer_control(camera, KnownCameraControl::Brightness, *value)
+            }
+            CameraControlRequest::SetContrast { value } => {
+                set_integer_control(camera, KnownCameraControl::Contrast, *value)
+            }
+            CameraControlRequest::SetGain { value } => {
+                set_integer_control(camera, KnownCameraControl::Gain, *value)
+            }
+            CameraControlRequest::SetExposure { mode, value } => {
+                set_exposure(camera, mode, *value)
+            }
+            CameraControlRequest::SetWhiteBalance { mode, temperature } => {
+                set_white_balance(camera, mode, *temperature)
+            }
+        }
+    }
+}
+
+/// Set a simple integer camera control and read back the current value
+fn set_integer_control(
+    camera: &mut Camera,
+    kind: KnownCameraControl,
+    value: i32,
+) -> ControlResult {
+    match camera.set_camera_control(kind, ControlValueSetter::Integer(i64::from(value))) {
+        Ok(()) => {
+            let current = camera
+                .camera_control(kind)
+                .ok()
+                .and_then(|c| c.value().as_integer().copied())
+                .map(|v| v as i32)
+                .unwrap_or(value);
+            ControlResult::ok(format!("{:?} set to {}", kind, current), current)
+        }
+        Err(e) => ControlResult::err(format!("Failed to set {:?}: {}", kind, e)),
+    }
+}
+
+/// Set exposure mode and optionally the absolute exposure value
+fn set_exposure(camera: &mut Camera, mode: &ExposureMode, value: i32) -> ControlResult {
+    let auto_value = match mode {
+        ExposureMode::Auto => V4L2_EXPOSURE_AUTO_VALUE,
+        ExposureMode::Manual => V4L2_EXPOSURE_MANUAL_VALUE,
+    };
+
+    if let Err(e) = camera.set_camera_control(
+        KnownCameraControl::Other(V4L2_CID_EXPOSURE_AUTO as u128),
+        ControlValueSetter::Integer(auto_value),
+    ) {
+        return ControlResult::err(format!("Failed to set exposure mode: {}", e));
+    }
+
+    match mode {
+        ExposureMode::Auto => ControlResult::ok("Exposure set to auto mode", -1),
+        ExposureMode::Manual => {
+            // Set absolute exposure value (in 100µs units for V4L2)
+            if let Err(e) = camera.set_camera_control(
+                KnownCameraControl::Other(V4L2_CID_EXPOSURE_ABSOLUTE as u128),
+                ControlValueSetter::Integer(i64::from(value)),
+            ) {
+                return ControlResult::err(format!(
+                    "Exposure mode set to manual but value failed: {}",
+                    e
+                ));
+            }
+
+            let current = camera
+                .camera_control(KnownCameraControl::Other(V4L2_CID_EXPOSURE_ABSOLUTE as u128))
+                .ok()
+                .and_then(|c| c.value().as_integer().copied())
+                .map(|v| v as i32)
+                .unwrap_or(value);
+
+            ControlResult::ok(
+                format!("Exposure set to manual, value {}", current),
+                current,
+            )
+        }
+    }
+}
+
+/// Set white balance mode and optionally the temperature
+fn set_white_balance(
+    camera: &mut Camera,
+    mode: &WhiteBalanceMode,
+    temperature: i32,
+) -> ControlResult {
+    let auto_bool = matches!(mode, WhiteBalanceMode::Auto);
+
+    if let Err(e) = camera.set_camera_control(
+        KnownCameraControl::Other(V4L2_CID_AUTO_WHITE_BALANCE as u128),
+        ControlValueSetter::Boolean(auto_bool),
+    ) {
+        return ControlResult::err(format!("Failed to set white balance mode: {}", e));
+    }
+
+    match mode {
+        WhiteBalanceMode::Auto => ControlResult::ok("White balance set to auto mode", -1),
+        WhiteBalanceMode::Manual => {
+            if let Err(e) = camera.set_camera_control(
+                KnownCameraControl::WhiteBalance,
+                ControlValueSetter::Integer(i64::from(temperature)),
+            ) {
+                return ControlResult::err(format!(
+                    "White balance mode set to manual but temperature failed: {}",
+                    e
+                ));
+            }
+
+            let current = camera
+                .camera_control(KnownCameraControl::WhiteBalance)
+                .ok()
+                .and_then(|c| c.value().as_integer().copied())
+                .map(|v| v as i32)
+                .unwrap_or(temperature);
+
+            ControlResult::ok(
+                format!("White balance set to manual, temperature {}K", current),
+                current,
+            )
+        }
     }
 }
 

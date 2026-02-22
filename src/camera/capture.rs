@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 use tokio_util::sync::CancellationToken;
 
+use crate::camera::controls::ControlReceiver;
 use crate::types::{CameraConfig, Error, FrameId, Result};
 use super::device::CameraDevice;
 use crate::pipeline;
@@ -17,6 +18,9 @@ const STATUS_PRINT_INTERVAL_SECS: u64 = 3;
 /// configures it, and enters a loop that captures frames, processes them,
 /// and emits them to the video stream topic.
 ///
+/// Between frames, any pending camera control commands from the `control_rx`
+/// channel are drained and applied immediately.
+///
 /// # Errors
 /// 
 /// Returns an error if:
@@ -27,6 +31,7 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
     config: CameraConfig,
     node_runner: Arc<peppygen::NodeRunner>,
     cancel_token: CancellationToken,
+    control_rx: ControlReceiver,
 ) -> Result<()> {
     println!("[uvc_camera] Starting camera capture loop...");
     
@@ -69,6 +74,13 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
             if cancel_token.is_cancelled() {
                 println!("[uvc_camera] Shutdown requested, stopping camera capture loop");
                 break;
+            }
+
+            // Drain all pending camera control commands before capturing the next frame
+            while let Ok(cmd) = control_rx.try_recv() {
+                let result = camera.apply_control(&cmd.request);
+                // If the receiver has gone away (service handler timed out), ignore the error
+                let _ = cmd.reply.send(result);
             }
 
             // Capture frame from camera
@@ -141,7 +153,8 @@ pub async fn run_nokhwa_capture_loop(
     config: CameraConfig,
     node_runner: Arc<peppygen::NodeRunner>,
     cancel_token: CancellationToken,
+    control_rx: ControlReceiver,
 ) -> Result<()> {
     let camera = super::NokhwaCamera::new();
-    run_camera_capture_loop(camera, config, node_runner, cancel_token).await
+    run_camera_capture_loop(camera, config, node_runner, cancel_token, control_rx).await
 }

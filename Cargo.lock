@@ -4870,6 +4870,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "v4l2-sys-mit",
 ]
 
 [[package]]
