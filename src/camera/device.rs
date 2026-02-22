@@ -1,4 +1,5 @@
 use crate::types::{CameraConfig, Frame, Result};
+use super::controls::{CameraControlRequest, ControlResult};
 
 /// Abstraction for camera devices
 /// 
@@ -12,11 +13,22 @@ pub trait CameraDevice: Send {
     
     /// Check if the camera is open
     fn is_open(&self) -> bool;
+
+    /// Apply a camera control request.
+    ///
+    /// Returns a `ControlResult` indicating success/failure and the current
+    /// value after applying the control.  The default implementation reports
+    /// that controls are unsupported, which is appropriate for mock devices
+    /// that don't need hardware control.
+    fn apply_control(&mut self, _request: &CameraControlRequest) -> ControlResult {
+        ControlResult::err("Camera controls not supported for this device")
+    }
 }
 
 #[cfg(test)]
 pub mod mock {
     use super::*;
+    use crate::camera::controls::{CameraControlRequest, ControlResult};
     use crate::types::Error;
     
     /// Mock camera for testing
@@ -25,6 +37,12 @@ pub mod mock {
         frame_counter: u32,
         width: u32,
         height: u32,
+        /// Simulated control values (brightness, contrast, gain, exposure, white_balance)
+        pub brightness: i32,
+        pub contrast: i32,
+        pub gain: i32,
+        pub exposure: i32,
+        pub white_balance_temperature: i32,
     }
     
     impl MockCamera {
@@ -34,6 +52,11 @@ pub mod mock {
                 frame_counter: 0,
                 width: 640,
                 height: 480,
+                brightness: 128,
+                contrast: 128,
+                gain: 50,
+                exposure: 100,
+                white_balance_temperature: 4500,
             }
         }
         
@@ -87,6 +110,45 @@ pub mod mock {
         
         fn is_open(&self) -> bool {
             self.is_open
+        }
+
+        fn apply_control(&mut self, request: &CameraControlRequest) -> ControlResult {
+            use crate::camera::controls::ExposureMode;
+            use crate::camera::controls::WhiteBalanceMode;
+
+            match request {
+                CameraControlRequest::SetBrightness { value } => {
+                    self.brightness = *value;
+                    ControlResult::ok(format!("Brightness set to {}", value), *value)
+                }
+                CameraControlRequest::SetContrast { value } => {
+                    self.contrast = *value;
+                    ControlResult::ok(format!("Contrast set to {}", value), *value)
+                }
+                CameraControlRequest::SetGain { value } => {
+                    self.gain = *value;
+                    ControlResult::ok(format!("Gain set to {}", value), *value)
+                }
+                CameraControlRequest::SetExposure { mode, value } => match mode {
+                    ExposureMode::Auto => ControlResult::ok("Exposure set to auto mode", -1),
+                    ExposureMode::Manual => {
+                        self.exposure = *value;
+                        ControlResult::ok(format!("Exposure set to manual, value {}", value), *value)
+                    }
+                },
+                CameraControlRequest::SetWhiteBalance { mode, temperature } => match mode {
+                    WhiteBalanceMode::Auto => {
+                        ControlResult::ok("White balance set to auto mode", -1)
+                    }
+                    WhiteBalanceMode::Manual => {
+                        self.white_balance_temperature = *temperature;
+                        ControlResult::ok(
+                            format!("White balance set to manual, temperature {}K", temperature),
+                            *temperature,
+                        )
+                    }
+                },
+            }
         }
     }
 }
