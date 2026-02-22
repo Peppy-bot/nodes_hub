@@ -91,8 +91,10 @@ impl ControlResult {
 
 /// A camera control command sent from a service handler to the capture loop.
 ///
-/// Uses a rendezvous channel (capacity 1) so the sender does not need to wait
-/// for the receiver.
+/// The outer control channel is unbounded, so the sender never blocks on
+/// enqueue.  Each command carries a `SyncSender` reply channel (capacity 1)
+/// so the capture loop can post the result without blocking even if the
+/// service handler has not yet called `recv()`.
 pub struct ControlCommand {
     pub request: CameraControlRequest,
     pub reply: std::sync::mpsc::SyncSender<ControlResult>,

@@ -11,17 +11,14 @@ use crate::camera::controls::{
 use crate::types::{CameraConfig, Error, Frame, Result};
 use super::device::CameraDevice;
 
-/// V4L2 CID for exposure auto mode (V4L2_CID_EXPOSURE_AUTO = V4L2_CID_CAMERA_CLASS_BASE + 1)
-const V4L2_CID_EXPOSURE_AUTO: u128 = 10_027_777;
+use v4l2_sys_mit::{
+    V4L2_CID_EXPOSURE_AUTO, V4L2_CID_EXPOSURE_ABSOLUTE, V4L2_CID_AUTO_WHITE_BALANCE
+};
+
 /// V4L2_EXPOSURE_AUTO = 0 (camera controls exposure automatically)
 const V4L2_EXPOSURE_AUTO_VALUE: i64 = 0;
 /// V4L2_EXPOSURE_MANUAL = 1 (manual exposure value via V4L2_CID_EXPOSURE_ABSOLUTE)
 const V4L2_EXPOSURE_MANUAL_VALUE: i64 = 1;
-/// V4L2 CID for absolute exposure value (V4L2_CID_EXPOSURE_ABSOLUTE = V4L2_CID_CAMERA_CLASS_BASE + 2)
-const V4L2_CID_EXPOSURE_ABSOLUTE: u128 = 10_027_778;
-
-/// V4L2 CID for auto white balance (V4L2_CID_AUTO_WHITE_BALANCE = V4L2_CID_BASE + 12)
-const V4L2_CID_AUTO_WHITE_BALANCE: u128 = 9_963_276;
 
 /// Nokhwa-based camera implementation
 /// 
@@ -149,7 +146,7 @@ fn set_exposure(camera: &mut Camera, mode: &ExposureMode, value: i32) -> Control
     };
 
     if let Err(e) = camera.set_camera_control(
-        KnownCameraControl::Other(V4L2_CID_EXPOSURE_AUTO),
+        KnownCameraControl::Other(V4L2_CID_EXPOSURE_AUTO as u128),
         ControlValueSetter::Integer(auto_value),
     ) {
         return ControlResult::err(format!("Failed to set exposure mode: {}", e));
@@ -160,7 +157,7 @@ fn set_exposure(camera: &mut Camera, mode: &ExposureMode, value: i32) -> Control
         ExposureMode::Manual => {
             // Set absolute exposure value (in 100µs units for V4L2)
             if let Err(e) = camera.set_camera_control(
-                KnownCameraControl::Other(V4L2_CID_EXPOSURE_ABSOLUTE),
+                KnownCameraControl::Other(V4L2_CID_EXPOSURE_ABSOLUTE as u128),
                 ControlValueSetter::Integer(i64::from(value)),
             ) {
                 return ControlResult::err(format!(
@@ -170,7 +167,7 @@ fn set_exposure(camera: &mut Camera, mode: &ExposureMode, value: i32) -> Control
             }
 
             let current = camera
-                .camera_control(KnownCameraControl::Other(V4L2_CID_EXPOSURE_ABSOLUTE))
+                .camera_control(KnownCameraControl::Other(V4L2_CID_EXPOSURE_ABSOLUTE as u128))
                 .ok()
                 .and_then(|c| c.value().as_integer().copied())
                 .map(|v| v as i32)
@@ -193,7 +190,7 @@ fn set_white_balance(
     let auto_bool = matches!(mode, WhiteBalanceMode::Auto);
 
     if let Err(e) = camera.set_camera_control(
-        KnownCameraControl::Other(V4L2_CID_AUTO_WHITE_BALANCE),
+        KnownCameraControl::Other(V4L2_CID_AUTO_WHITE_BALANCE as u128),
         ControlValueSetter::Boolean(auto_bool),
     ) {
         return ControlResult::err(format!("Failed to set white balance mode: {}", e));
