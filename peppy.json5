@@ -28,7 +28,8 @@
         width: "u32",
         height: "u32",
       },
-      encoding: "string",
+      camera_encoding: "string",
+      topic_encoding: "string",
     },
   },
   interfaces: {

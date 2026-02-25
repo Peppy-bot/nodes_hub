@@ -111,7 +111,10 @@ pub struct CameraConfig {
     pub device_path: String,
     pub resolution: Resolution,
     pub frame_rate: FrameRate,
-    pub encoding: Encoding,
+    /// Encoding requested when opening the camera (hardware wire format)
+    pub camera_encoding: Encoding,
+    /// Encoding used for published topic frames
+    pub topic_encoding: Encoding,
 }
 
 impl CameraConfig {
@@ -119,13 +122,15 @@ impl CameraConfig {
         device_path: String,
         resolution: Resolution,
         frame_rate: FrameRate,
-        encoding: Encoding,
+        camera_encoding: Encoding,
+        topic_encoding: Encoding,
     ) -> Self {
         Self {
             device_path,
             resolution,
             frame_rate,
-            encoding,
+            camera_encoding,
+            topic_encoding,
         }
     }
 }
@@ -137,7 +142,8 @@ pub struct CameraConfigBuilder {
     width: Option<u32>,
     height: Option<u32>,
     frame_rate: Option<u16>,
-    encoding: Option<Encoding>,
+    camera_encoding: Option<Encoding>,
+    topic_encoding: Option<Encoding>,
 }
 
 impl CameraConfigBuilder {
@@ -161,8 +167,13 @@ impl CameraConfigBuilder {
         self
     }
     
-    pub fn encoding(mut self, encoding: Encoding) -> Self {
-        self.encoding = Some(encoding);
+    pub fn camera_encoding(mut self, encoding: Encoding) -> Self {
+        self.camera_encoding = Some(encoding);
+        self
+    }
+    
+    pub fn topic_encoding(mut self, encoding: Encoding) -> Self {
+        self.topic_encoding = Some(encoding);
         self
     }
     
@@ -176,8 +187,9 @@ impl CameraConfigBuilder {
         
         let frame_rate = FrameRate::new(self.frame_rate.unwrap_or(FrameRate::DEFAULT));
         
-        let encoding = self.encoding.unwrap_or(Encoding::Rgb8);
+        let camera_encoding = self.camera_encoding.unwrap_or(Encoding::Mjpeg);
+        let topic_encoding = self.topic_encoding.unwrap_or(Encoding::Rgb8);
         
-        Ok(CameraConfig::new(device_path, resolution, frame_rate, encoding))
+        Ok(CameraConfig::new(device_path, resolution, frame_rate, camera_encoding, topic_encoding))
     }
 }

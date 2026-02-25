@@ -107,12 +107,16 @@ impl Frame {
         Self { data, info }
     }
     
-    /// Create a frame from raw camera capture (RGB8 encoding)
+    /// Create a frame from raw camera capture with an explicit encoding.
+    ///
+    /// The encoding must reflect the actual wire format produced by the camera
+    /// (e.g. read back from the negotiated `CameraFormat` after `open_stream`).
     pub fn from_capture(
         data: Vec<u8>,
         width: u32,
         height: u32,
         timestamp: Instant,
+        encoding: Encoding,
     ) -> Self {
         Self {
             data,
@@ -121,7 +125,7 @@ impl Frame {
                 height,
                 FrameId::default(),
                 timestamp,
-                Encoding::Rgb8,
+                encoding,
             ),
         }
     }

@@ -164,7 +164,8 @@ fn test_nokhwa_camera_end_to_end() {
         device_path: "/dev/video10".to_string(),
         resolution: Resolution::new(640, 480),
         frame_rate: FrameRate::new(30),
-        encoding: Encoding::Rgb8,
+        camera_encoding: Encoding::Mjpeg,
+        topic_encoding: Encoding::Rgb8,
     };
     
     camera.open(&config)
