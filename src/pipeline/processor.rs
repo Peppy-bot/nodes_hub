@@ -120,9 +120,94 @@ mod tests {
         let rgb = vec![255, 0, 0, 0, 255, 0, 0, 0, 255];
         let bgr = rgb_to_bgr(&rgb);
         assert_eq!(bgr, vec![0, 0, 255, 0, 255, 0, 255, 0, 0]);
-        
+
         // Verify the operation is reversible (BGR to RGB is the same)
         let rgb_again = rgb_to_bgr(&bgr);
         assert_eq!(rgb_again, rgb);
+    }
+
+    // ── fast path ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_process_frame_fast_path_preserves_data() {
+        // When camera encoding == topic encoding, data must be bit-for-bit identical.
+        let data = vec![10u8, 20, 30, 40, 50, 60, 70, 80, 90];
+        for enc in [Encoding::Rgb8, Encoding::Bgr8] {
+            let raw = Frame::from_capture(data.clone(), 3, 1, Instant::now(), enc);
+            let frame = process_frame(raw, FrameId::default(), enc).unwrap();
+            assert_eq!(frame.data(), &data, "Fast path altered data for {enc:?}");
+            assert_eq!(frame.encoding(), enc);
+        }
+    }
+
+    #[test]
+    fn test_process_frame_frame_id_is_set() {
+        let data = vec![255u8, 0, 0, 0, 255, 0, 0, 0, 255];
+        let raw = Frame::from_capture(data, 3, 1, Instant::now(), Encoding::Rgb8);
+        let frame_id = FrameId::new(42);
+        let frame = process_frame(raw, frame_id, Encoding::Rgb8).unwrap();
+        assert_eq!(frame.frame_id(), frame_id);
+    }
+
+    // ── BGR8 camera source ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_process_frame_bgr8_to_rgb8() {
+        // Two pixels: BGR (0,128,255) and (10,20,30)
+        // After BGR→RGB swap they become (255,128,0) and (30,20,10)
+        let bgr = vec![0u8, 128, 255, 10, 20, 30];
+        let raw = Frame::from_capture(bgr, 2, 1, Instant::now(), Encoding::Bgr8);
+        let frame = process_frame(raw, FrameId::default(), Encoding::Rgb8).unwrap();
+        assert_eq!(frame.data(), &[255u8, 128, 0, 30, 20, 10]);
+        assert_eq!(frame.encoding(), Encoding::Rgb8);
+    }
+
+    #[test]
+    fn test_process_frame_bgr8_to_mjpeg() {
+        let bgr = vec![0u8; 4 * 3 * 3]; // 4×3 black frame in BGR
+        let raw = Frame::from_capture(bgr, 4, 3, Instant::now(), Encoding::Bgr8);
+        let frame = process_frame(raw, FrameId::default(), Encoding::Mjpeg).unwrap();
+        assert!(frame.data().starts_with(&[0xFF, 0xD8]), "Expected JPEG header");
+        assert_eq!(frame.encoding(), Encoding::Mjpeg);
+    }
+
+    // ── MJPEG camera source ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_process_frame_mjpeg_to_rgb8() {
+        // Encode a 1×1 red pixel as JPEG then decode via process_frame.
+        // JPEG is lossy so we only check that the red channel dominates.
+        let jpeg = encode_jpeg(&[255u8, 0, 0], 1, 1, JPEG_QUALITY).unwrap();
+        let raw = Frame::from_capture(jpeg, 1, 1, Instant::now(), Encoding::Mjpeg);
+        let frame = process_frame(raw, FrameId::default(), Encoding::Rgb8).unwrap();
+        assert_eq!(frame.encoding(), Encoding::Rgb8);
+        assert_eq!(frame.data().len(), 3);
+        assert!(frame.data()[0] > 200, "R channel should be high");
+        assert!(frame.data()[1] < 50,  "G channel should be low");
+        assert!(frame.data()[2] < 50,  "B channel should be low");
+    }
+
+    #[test]
+    fn test_process_frame_mjpeg_to_bgr8() {
+        // Encode a 1×1 pure-blue pixel (RGB: 0,0,255) as JPEG then decode to BGR.
+        // In BGR output the blue value moves to index 0.
+        let jpeg = encode_jpeg(&[0u8, 0, 255], 1, 1, JPEG_QUALITY).unwrap();
+        let raw = Frame::from_capture(jpeg, 1, 1, Instant::now(), Encoding::Mjpeg);
+        let frame = process_frame(raw, FrameId::default(), Encoding::Bgr8).unwrap();
+        assert_eq!(frame.encoding(), Encoding::Bgr8);
+        assert_eq!(frame.data().len(), 3);
+        assert!(frame.data()[0] > 200, "B channel (index 0 in BGR) should be high");
+        assert!(frame.data()[1] < 50,  "G channel should be low");
+        assert!(frame.data()[2] < 50,  "R channel (index 2 in BGR) should be low");
+    }
+
+    #[test]
+    fn test_process_frame_mjpeg_fast_path() {
+        // MJPEG → MJPEG: the encoded bytes must be returned unchanged.
+        let jpeg = encode_jpeg(&[128u8, 64, 32], 1, 1, JPEG_QUALITY).unwrap();
+        let raw = Frame::from_capture(jpeg.clone(), 1, 1, Instant::now(), Encoding::Mjpeg);
+        let frame = process_frame(raw, FrameId::default(), Encoding::Mjpeg).unwrap();
+        assert_eq!(frame.data(), &jpeg);
+        assert_eq!(frame.encoding(), Encoding::Mjpeg);
     }
 }

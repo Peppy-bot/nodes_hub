@@ -109,7 +109,7 @@ impl CameraDevice for NokhwaCamera {
         let buffer = frame.buffer_bytes().to_vec();
         let resolution = frame.resolution();
         let timestamp = std::time::Instant::now();
-        
+
         Ok(Frame::from_capture(
             buffer,
             resolution.width_x,
@@ -295,7 +295,30 @@ fn parse_camera_index(device_path: &str) -> Result<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
+    #[test]
+    fn test_encoding_to_frame_format() {
+        assert_eq!(encoding_to_frame_format(Encoding::Rgb8), FrameFormat::RAWRGB);
+        assert_eq!(encoding_to_frame_format(Encoding::Bgr8), FrameFormat::RAWBGR);
+        assert_eq!(encoding_to_frame_format(Encoding::Mjpeg), FrameFormat::MJPEG);
+    }
+
+    #[test]
+    fn test_frame_format_to_encoding() {
+        assert_eq!(frame_format_to_encoding(FrameFormat::RAWRGB), Encoding::Rgb8);
+        assert_eq!(frame_format_to_encoding(FrameFormat::RAWBGR), Encoding::Bgr8);
+        assert_eq!(frame_format_to_encoding(FrameFormat::MJPEG), Encoding::Mjpeg);
+    }
+
+    #[test]
+    fn test_encoding_frame_format_roundtrip() {
+        for enc in [Encoding::Rgb8, Encoding::Bgr8, Encoding::Mjpeg] {
+            let fmt = encoding_to_frame_format(enc);
+            let back = frame_format_to_encoding(fmt);
+            assert_eq!(back, enc, "Roundtrip failed for {enc:?}");
+        }
+    }
+
     #[test]
     fn test_parse_camera_index_valid() {
         assert_eq!(parse_camera_index("/dev/video0").unwrap(), 0);
