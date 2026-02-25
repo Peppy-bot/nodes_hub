@@ -8,7 +8,7 @@ use nokhwa::Camera;
 use crate::camera::controls::{
     CameraControlRequest, ControlResult, ExposureMode, WhiteBalanceMode,
 };
-use crate::types::{CameraConfig, Error, Frame, Result};
+use crate::types::{CameraConfig, Encoding, Error, Frame, Result};
 use super::device::CameraDevice;
 
 use v4l2_sys_mit::{
@@ -27,6 +27,10 @@ const V4L2_EXPOSURE_MANUAL_VALUE: i64 = 1;
 /// The Send bound is required only for moving into the blocking task initially.
 pub struct NokhwaCamera {
     camera: Option<SendableCamera>,
+    /// The actual camera encoding negotiated after `open_stream()`. The camera
+    /// driver may return a format different from what was requested, so this is
+    /// read back from `camera.camera_format()` rather than taken from the config.
+    actual_camera_encoding: Option<Encoding>,
 }
 
 /// Wrapper to make Camera Send-safe
@@ -38,7 +42,10 @@ unsafe impl Send for SendableCamera {}
 
 impl NokhwaCamera {
     pub fn new() -> Self {
-        Self { camera: None }
+        Self {
+            camera: None,
+            actual_camera_encoding: None,
+        }
     }
 }
 
@@ -50,32 +57,55 @@ impl Default for NokhwaCamera {
 
 impl CameraDevice for NokhwaCamera {
     fn open(&mut self, config: &CameraConfig) -> Result<()> {
+        println!("[uvc_camera] Opening nokhwa camera {}...", config.device_path);
         let index = parse_camera_index(&config.device_path)?;
-        
+        println!("[uvc_camera] Parsed index {}.", index);
         let frame_rate = config.frame_rate.as_u16();
         let requested = RequestedFormat::new::<RgbFormat>(RequestedFormatType::Closest(
             CameraFormat::new(
                 NokhwaResolution::new(config.resolution.width(), config.resolution.height()),
-                FrameFormat::RAWRGB,
+                encoding_to_frame_format(config.camera_encoding),
                 u32::from(frame_rate),
             ),
         ));
+
+        println!("[uvc_camera] Requesting format: {}x{} @ {} fps.", config.resolution.width(), config.resolution.height(), frame_rate);
         
-        let camera = Camera::new(CameraIndex::Index(index), requested)
+        let mut camera = Camera::new(CameraIndex::Index(index), requested)
             .map_err(|e| Error::Camera(format!("Failed to open camera {}: {}", config.device_path, e)))?;
         
+        println!("[uvc_camera] Camera {} opened successfully.", config.device_path);
+
+        camera.open_stream()
+            .map_err(|e| Error::Camera(format!("Failed to start stream for {}: {}", config.device_path, e)))?;
+
+        // Read back the format actually negotiated by the driver — it may differ
+        // from what was requested (e.g. hardware only supports MJPEG).
+        let negotiated = camera.camera_format().format();
+        let actual_encoding = frame_format_to_encoding(negotiated);
+        println!(
+            "[uvc_camera] Camera {} stream started. Requested format: {}, negotiated format: {} ({:?})",
+            config.device_path,
+            config.camera_encoding,
+            actual_encoding,
+            negotiated,
+        );
+
+        self.actual_camera_encoding = Some(actual_encoding);
         self.camera = Some(SendableCamera(camera));
         Ok(())
     }
     
     fn capture_frame(&mut self) -> Result<Frame> {
+        let encoding = self.actual_camera_encoding
+            .ok_or_else(|| Error::Camera("Camera not open".to_string()))?;
         let camera = self.camera.as_mut()
             .ok_or_else(|| Error::Camera("Camera not open".to_string()))?;
-        
+
         let frame = camera.0
             .frame()
             .map_err(|e| Error::Camera(format!("Failed to capture frame: {}", e)))?;
-        
+
         let buffer = frame.buffer_bytes().to_vec();
         let resolution = frame.resolution();
         let timestamp = std::time::Instant::now();
@@ -85,6 +115,7 @@ impl CameraDevice for NokhwaCamera {
             resolution.width_x,
             resolution.height_y,
             timestamp,
+            encoding,
         ))
     }
     
@@ -220,6 +251,32 @@ fn set_white_balance(
                 format!("White balance set to manual, temperature {}K", current),
                 current,
             )
+        }
+    }
+}
+
+/// Map an [`Encoding`] to the corresponding nokhwa [`FrameFormat`] to request
+/// from the camera hardware.
+fn encoding_to_frame_format(encoding: Encoding) -> FrameFormat {
+    match encoding {
+        Encoding::Mjpeg => FrameFormat::MJPEG,
+        Encoding::Rgb8 => FrameFormat::RAWRGB,
+        Encoding::Bgr8 => FrameFormat::RAWBGR,
+    }
+}
+
+/// Map a negotiated nokhwa [`FrameFormat`] back to our [`Encoding`].
+///
+/// Used to record what the camera driver actually settled on after `open_stream`,
+/// which may differ from what was requested.
+fn frame_format_to_encoding(fmt: FrameFormat) -> Encoding {
+    match fmt {
+        FrameFormat::MJPEG => Encoding::Mjpeg,
+        FrameFormat::RAWRGB => Encoding::Rgb8,
+        FrameFormat::RAWBGR => Encoding::Bgr8,
+        other => {
+            tracing::warn!("Unknown camera FrameFormat {:?}, falling back to Rgb8", other);
+            Encoding::Rgb8
         }
     }
 }

@@ -37,6 +37,8 @@ pub mod mock {
         frame_counter: u32,
         width: u32,
         height: u32,
+        /// Actual camera encoding (set during open, used when creating frames)
+        camera_encoding: Option<crate::types::Encoding>,
         /// Simulated control values (brightness, contrast, gain, exposure, white_balance)
         pub brightness: i32,
         pub contrast: i32,
@@ -52,6 +54,7 @@ pub mod mock {
                 frame_counter: 0,
                 width: 640,
                 height: 480,
+                camera_encoding: None,
                 brightness: 128,
                 contrast: 128,
                 gain: 50,
@@ -89,7 +92,10 @@ pub mod mock {
         fn open(&mut self, config: &CameraConfig) -> Result<()> {
             self.width = config.resolution.width();
             self.height = config.resolution.height();
+            self.camera_encoding = Some(config.camera_encoding);
             self.is_open = true;
+            print!("[uvc_camera] Mock camera opened with resolution {}x{} at {} fps, camera_encoding: {}, topic_encoding: {}. ",
+                self.width, self.height, config.frame_rate.as_u16(), config.camera_encoding, config.topic_encoding);
             Ok(())
         }
         
@@ -97,14 +103,18 @@ pub mod mock {
             if !self.is_open {
                 return Err(Error::Camera("Camera not open".to_string()));
             }
-            
+
+            let encoding = self.camera_encoding
+                .ok_or_else(|| Error::Camera("Camera not open".to_string()))?;
+
             self.frame_counter += 1;
-            
+
             Ok(Frame::from_capture(
                 self.generate_test_frame(),
                 self.width,
                 self.height,
                 std::time::Instant::now(),
+                encoding,
             ))
         }
         

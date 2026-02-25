@@ -15,11 +15,12 @@ fn main() -> Result<()> {
     let standalone_config = StandaloneConfig::new().with_parameters(&Parameters {
         device: "/dev/video0".to_string(),
         video: Video {
-            encoding: "rgb8".to_string(),
-            frame_rate: 30,
+            camera_encoding: "mjpeg".to_string(),
+            topic_encoding: "rgb8".to_string(),
+            frame_rate: 25,
             resolution: VideoResolution {
-                width: 640,
-                height: 480,
+                width: 1920,
+                height: 1080,
             },
         },
     });
@@ -31,19 +32,24 @@ fn main() -> Result<()> {
             let device = args.device.clone();
 
             println!(
-                "[uvc_camera] Video params: {}x{} @ {} fps, encoding: {}",
+                "[uvc_camera] Video params: {}x{} @ {} fps, camera_encoding: {}, topic_encoding: {}",
                 video_params.resolution.width,
                 video_params.resolution.height,
                 video_params.frame_rate,
-                video_params.encoding
+                video_params.camera_encoding,
+                video_params.topic_encoding
             );
 
             println!("[uvc_camera] Device: {device}");
 
-            // Parse and validate encoding format
-            let encoding = video_params.encoding.parse::<Encoding>()
+            // Parse and validate encoding formats
+            let camera_encoding = video_params.camera_encoding.parse::<Encoding>()
                 .unwrap_or_else(|e| {
-                    panic!("Invalid encoding format '{}': {}", video_params.encoding, e)
+                    panic!("Invalid camera_encoding '{}': {}", video_params.camera_encoding, e)
+                });
+            let topic_encoding = video_params.topic_encoding.parse::<Encoding>()
+                .unwrap_or_else(|e| {
+                    panic!("Invalid topic_encoding '{}': {}", video_params.topic_encoding, e)
                 });
 
             // Create camera configuration
@@ -51,7 +57,8 @@ fn main() -> Result<()> {
                 .device_path(device.clone())
                 .resolution(video_params.resolution.width, video_params.resolution.height)
                 .frame_rate(video_params.frame_rate)
-                .encoding(encoding)
+                .camera_encoding(camera_encoding)
+                .topic_encoding(topic_encoding)
                 .build()
                 .unwrap_or_else(|e| panic!("Failed to create camera config: {}", e));
 

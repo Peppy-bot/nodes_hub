@@ -39,29 +39,23 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
     println!("[uvc_camera] Opening camera {}...", config.device_path);
     
     let resolution = config.resolution;
-    let encoding = config.encoding;
+    let camera_encoding = config.camera_encoding;
+    let topic_encoding = config.topic_encoding;
     let frame_rate = config.frame_rate.as_u16();
     
-    camera = match tokio::task::spawn_blocking(move || {
-        camera.open(&config)?;
-        Ok::<_, Error>(camera)
-    })
-    .await
-    {
-        Err(join_err) => return Err(Error::ThreadPanic(format!("Camera open task panicked: {}", join_err))),
-        Ok(result) => result?,
-    };
-    
-    println!(
-        "[uvc_camera] Camera configured: {}x{} @ {} fps, encoding: {}",
-        resolution.width(),
-        resolution.height(),
-        frame_rate,
-        encoding
-    );
-
-    // Run the capture loop in a blocking task
+    // Run the open + capture loop in a single blocking task so the camera is
+    // never moved between OS threads (V4L2 mmap streams are thread-local).
     tokio::task::spawn_blocking(move || {
+        camera.open(&config)?;
+        println!(
+            "[uvc_camera] Camera configured: {}x{} @ {} fps, camera_encoding: {}, topic_encoding: {}",
+            resolution.width(),
+            resolution.height(),
+            frame_rate,
+            camera_encoding,
+            topic_encoding
+        );
+
         let mut frame_id = FrameId::default();
         let mut last_print_time = Instant::now();
         
@@ -94,7 +88,7 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
             };
 
             // Process frame (convert encoding if needed)
-            let frame = match pipeline::process_frame(raw_frame, frame_id, encoding) {
+            let frame = match pipeline::process_frame(raw_frame, frame_id, topic_encoding) {
                 Ok(frame) => frame,
                 Err(e) => {
                     tracing::warn!("Failed to process frame: {}", e);

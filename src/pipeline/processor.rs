@@ -27,24 +27,53 @@ fn encode_jpeg(data: &[u8], width: u32, height: u32, _quality: u8) -> Result<Vec
     Ok(jpeg_data)
 }
 
-/// Process a raw frame from the camera into the target encoding
+/// Decode MJPEG data to raw RGB8
+fn decode_jpeg(data: &[u8]) -> Result<Vec<u8>> {
+    use image::ImageReader;
+
+    let img = ImageReader::new(std::io::Cursor::new(data))
+        .with_guessed_format()
+        .map_err(|e| Error::EncodingError(format!("Failed to read JPEG: {}", e)))?
+        .decode()
+        .map_err(|e| Error::EncodingError(format!("Failed to decode JPEG: {}", e)))?;
+
+    Ok(img.into_rgb8().into_raw())
+}
+
+/// Process a raw frame from the camera into the target encoding.
+///
+/// The conversion is a two-step pipeline:
+/// 1. Decode the camera encoding to RGB8 (intermediate representation).
+/// 2. Encode RGB8 to the target encoding.
+///
+/// When camera encoding already matches the target the frame data is
+/// passed through unchanged.
 pub fn process_frame(
     frame: Frame,
     frame_id: FrameId,
     target_encoding: Encoding,
 ) -> Result<Frame> {
-    // Convert RGB8 from camera to target encoding
-    let data = match target_encoding {
-        // No conversion needed
+    let camera_encoding = frame.encoding();
+
+    // Fast path: no conversion needed
+    if camera_encoding == target_encoding {
+        return Ok(frame.with_frame_id(frame_id));
+    }
+
+    // Step 1: decode camera format to RGB8
+    let rgb_data = match camera_encoding {
         Encoding::Rgb8 => frame.data().to_vec(),
-        
-        // RGB -> BGR conversion
-        Encoding::Bgr8 => rgb_to_bgr(frame.data()),
-        
-        // RGB -> MJPEG
-        Encoding::Mjpeg => encode_jpeg(frame.data(), frame.width(), frame.height(), JPEG_QUALITY)?,
+        Encoding::Bgr8 => rgb_to_bgr(frame.data()), // BGR→RGB is the same channel swap
+        Encoding::Mjpeg => decode_jpeg(frame.data())?,
     };
-    
+
+    // Step 2: encode RGB8 to target
+    let data = match target_encoding {
+        Encoding::Rgb8 => rgb_data,
+        Encoding::Bgr8 => rgb_to_bgr(&rgb_data),
+        Encoding::Mjpeg => encode_jpeg(&rgb_data, frame.width(), frame.height(), JPEG_QUALITY)?,
+    };
+
     Ok(frame.with_encoding(data, target_encoding).with_frame_id(frame_id))
 }
 
@@ -56,29 +85,29 @@ mod tests {
     #[test]
     fn test_process_frame_rgb8() {
         let data = vec![255, 0, 0, 0, 255, 0, 0, 0, 255]; // 3 pixels
-        let raw = Frame::from_capture(data.clone(), 3, 1, Instant::now());
+        let raw = Frame::from_capture(data.clone(), 3, 1, Instant::now(), Encoding::Rgb8);
         let frame = process_frame(raw, FrameId::default(), Encoding::Rgb8).unwrap();
-        
+
         assert_eq!(frame.data(), &data);
         assert_eq!(frame.width(), 3);
         assert_eq!(frame.height(), 1);
         assert_eq!(frame.encoding(), Encoding::Rgb8);
     }
-    
+
     #[test]
     fn test_process_frame_bgr8() {
         let rgb = vec![255, 0, 0, 0, 255, 0, 0, 0, 255];
-        let raw = Frame::from_capture(rgb, 3, 1, Instant::now());
+        let raw = Frame::from_capture(rgb, 3, 1, Instant::now(), Encoding::Rgb8);
         let frame = process_frame(raw, FrameId::default(), Encoding::Bgr8).unwrap();
-        
+
         assert_eq!(frame.data(), &[0, 0, 255, 0, 255, 0, 255, 0, 0]);
         assert_eq!(frame.encoding(), Encoding::Bgr8);
     }
-    
+
     #[test]
     fn test_process_frame_mjpeg() {
         let rgb = vec![255, 0, 0, 0, 255, 0, 0, 0, 255];
-        let raw = Frame::from_capture(rgb, 3, 1, Instant::now());
+        let raw = Frame::from_capture(rgb, 3, 1, Instant::now(), Encoding::Rgb8);
         let frame = process_frame(raw, FrameId::default(), Encoding::Mjpeg).unwrap();
         
         // Check JPEG header
