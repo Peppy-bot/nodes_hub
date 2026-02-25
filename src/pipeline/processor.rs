@@ -29,15 +29,19 @@ fn encode_jpeg(data: &[u8], width: u32, height: u32, _quality: u8) -> Result<Vec
 
 /// Decode MJPEG data to raw RGB8
 fn decode_jpeg(data: &[u8]) -> Result<Vec<u8>> {
-    use image::ImageReader;
+    use image::codecs::jpeg::JpegDecoder;
+    use image::ImageDecoder;
 
-    let img = ImageReader::new(std::io::Cursor::new(data))
-        .with_guessed_format()
-        .map_err(|e| Error::EncodingError(format!("Failed to read JPEG: {}", e)))?
-        .decode()
+    let decoder = JpegDecoder::new(std::io::Cursor::new(data))
+        .map_err(|e| Error::EncodingError(format!("Failed to create JPEG decoder: {}", e)))?;
+
+    let (width, height) = decoder.dimensions();
+    let mut rgb = vec![0u8; (width * height * 3) as usize];
+    decoder
+        .read_image(&mut rgb)
         .map_err(|e| Error::EncodingError(format!("Failed to decode JPEG: {}", e)))?;
 
-    Ok(img.into_rgb8().into_raw())
+    Ok(rgb)
 }
 
 /// Process a raw frame from the camera into the target encoding.
@@ -209,5 +213,38 @@ mod tests {
         let frame = process_frame(raw, FrameId::default(), Encoding::Mjpeg).unwrap();
         assert_eq!(frame.data(), &jpeg);
         assert_eq!(frame.encoding(), Encoding::Mjpeg);
+    }
+
+    #[test]
+    fn test_process_frame_rgb8_mjpeg_rgb8_roundtrip() {
+        // RGB→MJPEG→RGB: JPEG is lossy, so we check each channel is within a
+        // reasonable tolerance (±10) rather than requiring bit-exact equality.
+        let original: Vec<u8> = vec![200, 100, 50, 10, 230, 180, 128, 128, 128];
+        let width = 3u32;
+        let height = 1u32;
+        let tolerance = 10u8;
+
+        // Step 1: RGB → MJPEG
+        let raw = Frame::from_capture(original.clone(), width, height, Instant::now(), Encoding::Rgb8);
+        let mjpeg_frame = process_frame(raw, FrameId::new(1), Encoding::Mjpeg).unwrap();
+        assert_eq!(mjpeg_frame.encoding(), Encoding::Mjpeg);
+        assert!(mjpeg_frame.data().starts_with(&[0xFF, 0xD8]));
+
+        // Step 2: MJPEG → RGB
+        let mjpeg_raw = Frame::from_capture(
+            mjpeg_frame.data().to_vec(),
+            width,
+            height,
+            Instant::now(),
+            Encoding::Mjpeg,
+        );
+        let rgb_frame = process_frame(mjpeg_raw, FrameId::new(2), Encoding::Rgb8).unwrap();
+        assert_eq!(rgb_frame.encoding(), Encoding::Rgb8);
+        assert_eq!(rgb_frame.data().len(), original.len());
+
+        for (i, (&orig, &recovered)) in original.iter().zip(rgb_frame.data()).enumerate() {
+            let diff = orig.abs_diff(recovered);
+            assert!(diff <= tolerance, "Channel {i}: original={orig}, recovered={recovered}, diff={diff} exceeds tolerance={tolerance}");
+        }
     }
 }
