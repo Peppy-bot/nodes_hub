@@ -1,4 +1,4 @@
-use peppygen::parameters::video::{Resolution as VideoResolution, Video};
+use peppygen::parameters::video::{VideoResolution, Video};
 use peppygen::{NodeBuilder, Parameters, Result, StandaloneConfig};
 use std::sync::Arc;
 

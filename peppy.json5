@@ -9,6 +9,8 @@
       "camera",
       "usb",
     ],
+  },
+  process: {
     add_cmd: [
       "cargo",
       "build",

@@ -1,7 +1,7 @@
 use peppygen::exposed_topics::video_stream::{self, MessageHeader};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
-use tokio_util::sync::CancellationToken;
+use peppylib::runtime::CancellationToken;
 
 use crate::camera::controls::ControlReceiver;
 use crate::types::{CameraConfig, Error, FrameId, Result};
