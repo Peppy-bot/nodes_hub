@@ -1,5 +1,5 @@
 {
-  "device": "/dev/video0",
+  "device": "/dev/video1",
   "video": {
     "camera_encoding": "mjpeg",
     "topic_encoding": "rgb8",
