@@ -1,4 +1,4 @@
-use peppygen::exposed_topics::video_stream::{self, MessageHeader};
+use peppygen::emitted_topics::video_stream::{self, MessageHeader};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 use peppylib::runtime::CancellationToken;

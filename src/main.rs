@@ -1,4 +1,3 @@
-use peppygen::parameters::video::{VideoResolution, Video};
 use peppygen::{NodeBuilder, Parameters, Result, StandaloneConfig};
 use std::sync::Arc;
 
@@ -11,19 +10,13 @@ use uvc_camera::services::{
 use uvc_camera::types::{CameraConfigBuilder, Encoding};
 
 fn main() -> Result<()> {
-    // Example configuration for standalone execution
-    let standalone_config = StandaloneConfig::new().with_parameters(&Parameters {
-        device: "/dev/video0".to_string(),
-        video: Video {
-            camera_encoding: "mjpeg".to_string(),
-            topic_encoding: "rgb8".to_string(),
-            frame_rate: 25,
-            resolution: VideoResolution {
-                width: 1920,
-                height: 1080,
-            },
-        },
-    });
+    // Load parameters from mock file for standalone execution
+    let mock_params: Parameters = serde_json::from_str(
+        &std::fs::read_to_string("mock_parameters.json")
+            .expect("Failed to read mock_parameters.json"),
+    )
+    .expect("Failed to parse mock_parameters.json");
+    let standalone_config = StandaloneConfig::new().with_parameters(&mock_params);
 
     NodeBuilder::new()
         .standalone(standalone_config)
