@@ -10,14 +10,11 @@
       "usb",
     ],
   },
-  process: {
-    add_cmd: [
-      "cargo",
-      "build",
-      "--release"
-    ],
-    start_cmd: [
-      "./target/release/uvc_camera"
+  container: {
+    def_file: "apptainer.def",
+    mount_paths: [
+      // write permissions required for services
+      "${parameters:device_path}:/dev/video0:rw"
     ]
   },
   parameters: {
