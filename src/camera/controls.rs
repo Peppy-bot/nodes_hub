@@ -53,7 +53,10 @@ pub enum CameraControlRequest {
     /// Set exposure: auto mode ignores `value`; manual mode uses it
     SetExposure { mode: ExposureMode, value: i32 },
     /// Set white balance: auto mode ignores `temperature`; manual mode uses it
-    SetWhiteBalance { mode: WhiteBalanceMode, temperature: i32 },
+    SetWhiteBalance {
+        mode: WhiteBalanceMode,
+        temperature: i32,
+    },
     /// Set gain level in camera-specific units
     SetGain { value: i32 },
     /// Set brightness level
@@ -117,7 +120,10 @@ mod tests {
     #[test]
     fn test_exposure_mode_parse() {
         assert_eq!(ExposureMode::try_from("auto").unwrap(), ExposureMode::Auto);
-        assert_eq!(ExposureMode::try_from("manual").unwrap(), ExposureMode::Manual);
+        assert_eq!(
+            ExposureMode::try_from("manual").unwrap(),
+            ExposureMode::Manual
+        );
         assert_eq!(ExposureMode::try_from("AUTO").unwrap(), ExposureMode::Auto);
         assert!(ExposureMode::try_from("invalid").is_err());
     }

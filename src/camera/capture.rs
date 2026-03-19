@@ -1,12 +1,12 @@
-use peppygen::exposed_topics::video_stream::{self, MessageHeader};
+use peppygen::emitted_topics::video_stream::{self, MessageHeader};
+use peppylib::runtime::CancellationToken;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
-use tokio_util::sync::CancellationToken;
 
-use crate::camera::controls::ControlReceiver;
-use crate::types::{CameraConfig, Error, FrameId, Result};
 use super::device::CameraDevice;
+use crate::camera::controls::ControlReceiver;
 use crate::pipeline;
+use crate::types::{CameraConfig, Error, FrameId, Result};
 
 /// Camera capture loop configuration
 const FRAME_RETRY_DELAY_MS: u64 = 10;
@@ -22,7 +22,7 @@ const STATUS_PRINT_INTERVAL_SECS: u64 = 3;
 /// channel are drained and applied immediately.
 ///
 /// # Errors
-/// 
+///
 /// Returns an error if:
 /// - Camera cannot be opened or configured
 /// - Thread panics during execution
@@ -34,15 +34,15 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
     control_rx: ControlReceiver,
 ) -> Result<()> {
     println!("[uvc_camera] Starting camera capture loop...");
-    
+
     // Open and configure camera (blocking operation, done before the loop)
     println!("[uvc_camera] Opening camera {}...", config.device_path);
-    
+
     let resolution = config.resolution;
     let camera_encoding = config.camera_encoding;
     let topic_encoding = config.topic_encoding;
     let frame_rate = config.frame_rate.as_u16();
-    
+
     // Run the open + capture loop in a single blocking task so the camera is
     // never moved between OS threads (V4L2 mmap streams are thread-local).
     tokio::task::spawn_blocking(move || {
@@ -58,7 +58,7 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
 
         let mut frame_id = FrameId::default();
         let mut last_print_time = Instant::now();
-        
+
         // Calculate target frame duration using nanoseconds for high FPS support
         let frame_duration_ns = 1_000_000_000u64 / u64::from(frame_rate);
         let target_frame_duration = Duration::from_nanos(frame_duration_ns);
@@ -133,12 +133,12 @@ async fn run_camera_capture_loop<C: CameraDevice + 'static>(
             }
             next_frame_time += target_frame_duration;
         }
-        
+
         Ok::<(), Error>(())
     })
     .await
     .map_err(|join_err| Error::ThreadPanic(format!("Camera capture task panicked: {}", join_err)))??;
-    
+
     Ok(())
 }
 

@@ -1,6 +1,5 @@
 use peppygen::exposed_services::{
-    set_brightness, set_contrast, set_exposure, set_gain, set_white_balance,
-    video_stream_info,
+    set_brightness, set_contrast, set_exposure, set_gain, set_white_balance, video_stream_info,
 };
 use std::sync::Arc;
 
@@ -231,5 +230,3 @@ pub async fn listen_for_set_contrast_requests(
         }
     }
 }
-
-

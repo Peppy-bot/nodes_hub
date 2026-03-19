@@ -13,24 +13,24 @@ fn rgb_to_bgr(data: &[u8]) -> Vec<u8> {
 /// Encode RGB8 data as JPEG
 fn encode_jpeg(data: &[u8], width: u32, height: u32, _quality: u8) -> Result<Vec<u8>> {
     use image::{ImageBuffer, Rgb};
-    
+
     let img = ImageBuffer::<Rgb<u8>, _>::from_raw(width, height, data.to_vec())
         .ok_or_else(|| Error::EncodingError("Failed to create image buffer".to_string()))?;
-    
+
     let mut jpeg_data = Vec::new();
     img.write_to(
         &mut std::io::Cursor::new(&mut jpeg_data),
         image::ImageFormat::Jpeg,
     )
     .map_err(|e| Error::EncodingError(format!("JPEG encoding failed: {}", e)))?;
-    
+
     Ok(jpeg_data)
 }
 
 /// Decode MJPEG data to raw RGB8
 fn decode_jpeg(data: &[u8]) -> Result<Vec<u8>> {
-    use image::codecs::jpeg::JpegDecoder;
     use image::ImageDecoder;
+    use image::codecs::jpeg::JpegDecoder;
 
     let decoder = JpegDecoder::new(std::io::Cursor::new(data))
         .map_err(|e| Error::EncodingError(format!("Failed to create JPEG decoder: {}", e)))?;
@@ -52,11 +52,7 @@ fn decode_jpeg(data: &[u8]) -> Result<Vec<u8>> {
 ///
 /// When camera encoding already matches the target the frame data is
 /// passed through unchanged.
-pub fn process_frame(
-    frame: Frame,
-    frame_id: FrameId,
-    target_encoding: Encoding,
-) -> Result<Frame> {
+pub fn process_frame(frame: Frame, frame_id: FrameId, target_encoding: Encoding) -> Result<Frame> {
     let camera_encoding = frame.encoding();
 
     // Fast path: no conversion needed
@@ -78,14 +74,16 @@ pub fn process_frame(
         Encoding::Mjpeg => encode_jpeg(&rgb_data, frame.width(), frame.height(), JPEG_QUALITY)?,
     };
 
-    Ok(frame.with_encoding(data, target_encoding).with_frame_id(frame_id))
+    Ok(frame
+        .with_encoding(data, target_encoding)
+        .with_frame_id(frame_id))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Instant;
-    
+
     #[test]
     fn test_process_frame_rgb8() {
         let data = vec![255, 0, 0, 0, 255, 0, 0, 0, 255]; // 3 pixels
@@ -113,12 +111,12 @@ mod tests {
         let rgb = vec![255, 0, 0, 0, 255, 0, 0, 0, 255];
         let raw = Frame::from_capture(rgb, 3, 1, Instant::now(), Encoding::Rgb8);
         let frame = process_frame(raw, FrameId::default(), Encoding::Mjpeg).unwrap();
-        
+
         // Check JPEG header
         assert!(frame.data().starts_with(&[0xFF, 0xD8]));
         assert_eq!(frame.encoding(), Encoding::Mjpeg);
     }
-    
+
     #[test]
     fn test_rgb_to_bgr() {
         let rgb = vec![255, 0, 0, 0, 255, 0, 0, 0, 255];
@@ -171,7 +169,10 @@ mod tests {
         let bgr = vec![0u8; 4 * 3 * 3]; // 4×3 black frame in BGR
         let raw = Frame::from_capture(bgr, 4, 3, Instant::now(), Encoding::Bgr8);
         let frame = process_frame(raw, FrameId::default(), Encoding::Mjpeg).unwrap();
-        assert!(frame.data().starts_with(&[0xFF, 0xD8]), "Expected JPEG header");
+        assert!(
+            frame.data().starts_with(&[0xFF, 0xD8]),
+            "Expected JPEG header"
+        );
         assert_eq!(frame.encoding(), Encoding::Mjpeg);
     }
 
@@ -187,8 +188,8 @@ mod tests {
         assert_eq!(frame.encoding(), Encoding::Rgb8);
         assert_eq!(frame.data().len(), 3);
         assert!(frame.data()[0] > 200, "R channel should be high");
-        assert!(frame.data()[1] < 50,  "G channel should be low");
-        assert!(frame.data()[2] < 50,  "B channel should be low");
+        assert!(frame.data()[1] < 50, "G channel should be low");
+        assert!(frame.data()[2] < 50, "B channel should be low");
     }
 
     #[test]
@@ -200,9 +201,15 @@ mod tests {
         let frame = process_frame(raw, FrameId::default(), Encoding::Bgr8).unwrap();
         assert_eq!(frame.encoding(), Encoding::Bgr8);
         assert_eq!(frame.data().len(), 3);
-        assert!(frame.data()[0] > 200, "B channel (index 0 in BGR) should be high");
-        assert!(frame.data()[1] < 50,  "G channel should be low");
-        assert!(frame.data()[2] < 50,  "R channel (index 2 in BGR) should be low");
+        assert!(
+            frame.data()[0] > 200,
+            "B channel (index 0 in BGR) should be high"
+        );
+        assert!(frame.data()[1] < 50, "G channel should be low");
+        assert!(
+            frame.data()[2] < 50,
+            "R channel (index 2 in BGR) should be low"
+        );
     }
 
     #[test]
@@ -225,7 +232,13 @@ mod tests {
         let tolerance = 10u8;
 
         // Step 1: RGB → MJPEG
-        let raw = Frame::from_capture(original.clone(), width, height, Instant::now(), Encoding::Rgb8);
+        let raw = Frame::from_capture(
+            original.clone(),
+            width,
+            height,
+            Instant::now(),
+            Encoding::Rgb8,
+        );
         let mjpeg_frame = process_frame(raw, FrameId::new(1), Encoding::Mjpeg).unwrap();
         assert_eq!(mjpeg_frame.encoding(), Encoding::Mjpeg);
         assert!(mjpeg_frame.data().starts_with(&[0xFF, 0xD8]));
@@ -244,7 +257,10 @@ mod tests {
 
         for (i, (&orig, &recovered)) in original.iter().zip(rgb_frame.data()).enumerate() {
             let diff = orig.abs_diff(recovered);
-            assert!(diff <= tolerance, "Channel {i}: original={orig}, recovered={recovered}, diff={diff} exceeds tolerance={tolerance}");
+            assert!(
+                diff <= tolerance,
+                "Channel {i}: original={orig}, recovered={recovered}, diff={diff} exceeds tolerance={tolerance}"
+            );
         }
     }
 }

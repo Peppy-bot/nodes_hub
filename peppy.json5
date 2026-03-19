@@ -9,19 +9,19 @@
       "camera",
       "usb",
     ],
+  },
+  process: {
     add_cmd: [
       "cargo",
       "build",
       "--release"
     ],
     start_cmd: [
-      "cargo",
-      "run",
-      "--release"
+      "./target/release/uvc_camera"
     ]
   },
   parameters: {
-    device: "string",
+    device_path: "string",
     video: {
       frame_rate: "u16",
       resolution: {
@@ -33,8 +33,8 @@
     },
   },
   interfaces: {
-    exposes: {
-      topics: [
+    topics: {
+      emits: [
         {
           name: "video_stream",
           qos_profile: "sensor_data",
@@ -54,7 +54,9 @@
           },
         }
       ],
-      services: [
+    },
+    services: {
+      exposes: [
         {
           name: "video_stream_info",
           response_message_format: {
@@ -62,7 +64,7 @@
             height: "u32",
             frames_per_second: "u8",
             encoding: "string",
-          },
+          }
         },
         {
           name: "set_exposure",
@@ -121,7 +123,7 @@
             current_value: "i32",
           },
         },
-      ],
-    }
+      ]
+    },
   }
 }

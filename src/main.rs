@@ -1,4 +1,3 @@
-use peppygen::parameters::video::{Resolution as VideoResolution, Video};
 use peppygen::{NodeBuilder, Parameters, Result, StandaloneConfig};
 use std::sync::Arc;
 
@@ -11,25 +10,19 @@ use uvc_camera::services::{
 use uvc_camera::types::{CameraConfigBuilder, Encoding};
 
 fn main() -> Result<()> {
-    // Example configuration for standalone execution
-    let standalone_config = StandaloneConfig::new().with_parameters(&Parameters {
-        device: "/dev/video0".to_string(),
-        video: Video {
-            camera_encoding: "mjpeg".to_string(),
-            topic_encoding: "rgb8".to_string(),
-            frame_rate: 25,
-            resolution: VideoResolution {
-                width: 1920,
-                height: 1080,
-            },
-        },
-    });
+    // Load parameters from mock file for standalone execution
+    let mock_params: Parameters = serde_json::from_str(
+        &std::fs::read_to_string("mock_parameters.json")
+            .expect("Failed to read mock_parameters.json"),
+    )
+    .expect("Failed to parse mock_parameters.json");
+    let standalone_config = StandaloneConfig::new().with_parameters(&mock_params);
 
     NodeBuilder::new()
         .standalone(standalone_config)
         .run(move |args: Parameters, node_runner| async move {
             let video_params = args.video.clone();
-            let device = args.device.clone();
+            let device_path = args.device_path.clone();
 
             println!(
                 "[uvc_camera] Video params: {}x{} @ {} fps, camera_encoding: {}, topic_encoding: {}",
@@ -40,7 +33,7 @@ fn main() -> Result<()> {
                 video_params.topic_encoding
             );
 
-            println!("[uvc_camera] Device: {device}");
+            println!("[uvc_camera] Device: {device_path}");
 
             // Parse and validate encoding formats
             let camera_encoding = video_params.camera_encoding.parse::<Encoding>()
@@ -54,7 +47,7 @@ fn main() -> Result<()> {
 
             // Create camera configuration
             let camera_config = CameraConfigBuilder::new()
-                .device_path(device.clone())
+                .device_path(device_path.clone())
                 .resolution(video_params.resolution.width, video_params.resolution.height)
                 .frame_rate(video_params.frame_rate)
                 .camera_encoding(camera_encoding)
