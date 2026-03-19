@@ -5,16 +5,16 @@ use std::fmt;
 pub enum Error {
     /// Camera hardware errors
     Camera(String),
-    
+
     /// Image encoding failed
     EncodingError(String),
-    
+
     /// Device path parsing failed
     InvalidDevicePath(String),
-    
+
     /// Thread panicked
     ThreadPanic(String),
-    
+
     /// Generic error with context
     Other(String),
 }

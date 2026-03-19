@@ -1,16 +1,16 @@
-use crate::types::{CameraConfig, Frame, Result};
 use super::controls::{CameraControlRequest, ControlResult};
+use crate::types::{CameraConfig, Frame, Result};
 
 /// Abstraction for camera devices
-/// 
+///
 /// This trait enables testing by allowing mock implementations
 pub trait CameraDevice: Send {
     /// Open and configure the camera
     fn open(&mut self, config: &CameraConfig) -> Result<()>;
-    
+
     /// Capture a single frame (always RGB8 from camera)
     fn capture_frame(&mut self) -> Result<Frame>;
-    
+
     /// Check if the camera is open
     fn is_open(&self) -> bool;
 

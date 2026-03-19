@@ -1,18 +1,18 @@
+use nokhwa::Camera;
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{
     CameraFormat, CameraIndex, ControlValueSetter, FrameFormat, KnownCameraControl,
     RequestedFormat, RequestedFormatType, Resolution as NokhwaResolution,
 };
-use nokhwa::Camera;
 
+use super::device::CameraDevice;
 use crate::camera::controls::{
     CameraControlRequest, ControlResult, ExposureMode, WhiteBalanceMode,
 };
 use crate::types::{CameraConfig, Encoding, Error, Frame, Result};
-use super::device::CameraDevice;
 
 use v4l2_sys_mit::{
-    V4L2_CID_EXPOSURE_AUTO, V4L2_CID_EXPOSURE_ABSOLUTE, V4L2_CID_AUTO_WHITE_BALANCE
+    V4L2_CID_AUTO_WHITE_BALANCE, V4L2_CID_EXPOSURE_ABSOLUTE, V4L2_CID_EXPOSURE_AUTO,
 };
 
 /// V4L2_EXPOSURE_AUTO = 0 (camera controls exposure automatically)
@@ -21,7 +21,7 @@ const V4L2_EXPOSURE_AUTO_VALUE: i64 = 0;
 const V4L2_EXPOSURE_MANUAL_VALUE: i64 = 1;
 
 /// Nokhwa-based camera implementation
-/// 
+///
 /// Note: Camera from nokhwa doesn't implement Send, but we use it in a single-threaded
 /// context (spawn_blocking) where it's never actually sent between threads during execution.
 /// The Send bound is required only for moving into the blocking task initially.
@@ -34,7 +34,7 @@ pub struct NokhwaCamera {
 }
 
 /// Wrapper to make Camera Send-safe
-/// 
+///
 /// SAFETY: Camera is used only within a single thread (spawn_blocking).
 /// It's never accessed from multiple threads concurrently.
 struct SendableCamera(Camera);
@@ -57,27 +57,45 @@ impl Default for NokhwaCamera {
 
 impl CameraDevice for NokhwaCamera {
     fn open(&mut self, config: &CameraConfig) -> Result<()> {
-        println!("[uvc_camera] Opening nokhwa camera {}...", config.device_path);
+        println!(
+            "[uvc_camera] Opening nokhwa camera {}...",
+            config.device_path
+        );
         let index = parse_camera_index(&config.device_path)?;
         println!("[uvc_camera] Parsed index {}.", index);
         let frame_rate = config.frame_rate.as_u16();
-        let requested = RequestedFormat::new::<RgbFormat>(RequestedFormatType::Closest(
-            CameraFormat::new(
+        let requested =
+            RequestedFormat::new::<RgbFormat>(RequestedFormatType::Closest(CameraFormat::new(
                 NokhwaResolution::new(config.resolution.width(), config.resolution.height()),
                 encoding_to_frame_format(config.camera_encoding),
                 u32::from(frame_rate),
-            ),
-        ));
+            )));
 
-        println!("[uvc_camera] Requesting format: {}x{} @ {} fps.", config.resolution.width(), config.resolution.height(), frame_rate);
-        
-        let mut camera = Camera::new(CameraIndex::Index(index), requested)
-            .map_err(|e| Error::Camera(format!("Failed to open camera {}: {}", config.device_path, e)))?;
-        
-        println!("[uvc_camera] Camera {} opened successfully.", config.device_path);
+        println!(
+            "[uvc_camera] Requesting format: {}x{} @ {} fps.",
+            config.resolution.width(),
+            config.resolution.height(),
+            frame_rate
+        );
 
-        camera.open_stream()
-            .map_err(|e| Error::Camera(format!("Failed to start stream for {}: {}", config.device_path, e)))?;
+        let mut camera = Camera::new(CameraIndex::Index(index), requested).map_err(|e| {
+            Error::Camera(format!(
+                "Failed to open camera {}: {}",
+                config.device_path, e
+            ))
+        })?;
+
+        println!(
+            "[uvc_camera] Camera {} opened successfully.",
+            config.device_path
+        );
+
+        camera.open_stream().map_err(|e| {
+            Error::Camera(format!(
+                "Failed to start stream for {}: {}",
+                config.device_path, e
+            ))
+        })?;
 
         // Read back the format actually negotiated by the driver — it may differ
         // from what was requested (e.g. hardware only supports MJPEG).
@@ -85,24 +103,25 @@ impl CameraDevice for NokhwaCamera {
         let actual_encoding = frame_format_to_encoding(negotiated);
         println!(
             "[uvc_camera] Camera {} stream started. Requested format: {}, negotiated format: {} ({:?})",
-            config.device_path,
-            config.camera_encoding,
-            actual_encoding,
-            negotiated,
+            config.device_path, config.camera_encoding, actual_encoding, negotiated,
         );
 
         self.actual_camera_encoding = Some(actual_encoding);
         self.camera = Some(SendableCamera(camera));
         Ok(())
     }
-    
+
     fn capture_frame(&mut self) -> Result<Frame> {
-        let encoding = self.actual_camera_encoding
+        let encoding = self
+            .actual_camera_encoding
             .ok_or_else(|| Error::Camera("Camera not open".to_string()))?;
-        let camera = self.camera.as_mut()
+        let camera = self
+            .camera
+            .as_mut()
             .ok_or_else(|| Error::Camera("Camera not open".to_string()))?;
 
-        let frame = camera.0
+        let frame = camera
+            .0
             .frame()
             .map_err(|e| Error::Camera(format!("Failed to capture frame: {}", e)))?;
 
@@ -118,7 +137,7 @@ impl CameraDevice for NokhwaCamera {
             encoding,
         ))
     }
-    
+
     fn is_open(&self) -> bool {
         self.camera.is_some()
     }
@@ -139,9 +158,7 @@ impl CameraDevice for NokhwaCamera {
             CameraControlRequest::SetGain { value } => {
                 set_integer_control(camera, KnownCameraControl::Gain, *value)
             }
-            CameraControlRequest::SetExposure { mode, value } => {
-                set_exposure(camera, mode, *value)
-            }
+            CameraControlRequest::SetExposure { mode, value } => set_exposure(camera, mode, *value),
             CameraControlRequest::SetWhiteBalance { mode, temperature } => {
                 set_white_balance(camera, mode, *temperature)
             }
@@ -150,11 +167,7 @@ impl CameraDevice for NokhwaCamera {
 }
 
 /// Set a simple integer camera control and read back the current value
-fn set_integer_control(
-    camera: &mut Camera,
-    kind: KnownCameraControl,
-    value: i32,
-) -> ControlResult {
+fn set_integer_control(camera: &mut Camera, kind: KnownCameraControl, value: i32) -> ControlResult {
     match camera.set_camera_control(kind, ControlValueSetter::Integer(i64::from(value))) {
         Ok(()) => {
             let current = camera
@@ -198,7 +211,9 @@ fn set_exposure(camera: &mut Camera, mode: &ExposureMode, value: i32) -> Control
             }
 
             let current = camera
-                .camera_control(KnownCameraControl::Other(V4L2_CID_EXPOSURE_ABSOLUTE as u128))
+                .camera_control(KnownCameraControl::Other(
+                    V4L2_CID_EXPOSURE_ABSOLUTE as u128,
+                ))
                 .ok()
                 .and_then(|c| c.value().as_integer().copied())
                 .map(|v| v as i32)
@@ -275,7 +290,10 @@ fn frame_format_to_encoding(fmt: FrameFormat) -> Encoding {
         FrameFormat::RAWRGB => Encoding::Rgb8,
         FrameFormat::RAWBGR => Encoding::Bgr8,
         other => {
-            tracing::warn!("Unknown camera FrameFormat {:?}, falling back to Rgb8", other);
+            tracing::warn!(
+                "Unknown camera FrameFormat {:?}, falling back to Rgb8",
+                other
+            );
             Encoding::Rgb8
         }
     }
@@ -298,16 +316,34 @@ mod tests {
 
     #[test]
     fn test_encoding_to_frame_format() {
-        assert_eq!(encoding_to_frame_format(Encoding::Rgb8), FrameFormat::RAWRGB);
-        assert_eq!(encoding_to_frame_format(Encoding::Bgr8), FrameFormat::RAWBGR);
-        assert_eq!(encoding_to_frame_format(Encoding::Mjpeg), FrameFormat::MJPEG);
+        assert_eq!(
+            encoding_to_frame_format(Encoding::Rgb8),
+            FrameFormat::RAWRGB
+        );
+        assert_eq!(
+            encoding_to_frame_format(Encoding::Bgr8),
+            FrameFormat::RAWBGR
+        );
+        assert_eq!(
+            encoding_to_frame_format(Encoding::Mjpeg),
+            FrameFormat::MJPEG
+        );
     }
 
     #[test]
     fn test_frame_format_to_encoding() {
-        assert_eq!(frame_format_to_encoding(FrameFormat::RAWRGB), Encoding::Rgb8);
-        assert_eq!(frame_format_to_encoding(FrameFormat::RAWBGR), Encoding::Bgr8);
-        assert_eq!(frame_format_to_encoding(FrameFormat::MJPEG), Encoding::Mjpeg);
+        assert_eq!(
+            frame_format_to_encoding(FrameFormat::RAWRGB),
+            Encoding::Rgb8
+        );
+        assert_eq!(
+            frame_format_to_encoding(FrameFormat::RAWBGR),
+            Encoding::Bgr8
+        );
+        assert_eq!(
+            frame_format_to_encoding(FrameFormat::MJPEG),
+            Encoding::Mjpeg
+        );
     }
 
     #[test]
@@ -326,7 +362,7 @@ mod tests {
         assert_eq!(parse_camera_index("/dev/video42").unwrap(), 42);
         assert_eq!(parse_camera_index("/dev/video1000").unwrap(), 1000);
     }
-    
+
     #[test]
     fn test_parse_camera_index_invalid() {
         // Only /dev/videoN format is accepted
