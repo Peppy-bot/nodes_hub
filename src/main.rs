@@ -22,7 +22,7 @@ fn main() -> Result<()> {
         .standalone(standalone_config)
         .run(move |args: Parameters, node_runner| async move {
             let video_params = args.video.clone();
-            let device = args.device.clone();
+            let device_path = args.device_path.clone();
 
             println!(
                 "[uvc_camera] Video params: {}x{} @ {} fps, camera_encoding: {}, topic_encoding: {}",
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
                 video_params.topic_encoding
             );
 
-            println!("[uvc_camera] Device: {device}");
+            println!("[uvc_camera] Device: {device_path}");
 
             // Parse and validate encoding formats
             let camera_encoding = video_params.camera_encoding.parse::<Encoding>()
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
 
             // Create camera configuration
             let camera_config = CameraConfigBuilder::new()
-                .device_path(device.clone())
+                .device_path(device_path.clone())
                 .resolution(video_params.resolution.width, video_params.resolution.height)
                 .frame_rate(video_params.frame_rate)
                 .camera_encoding(camera_encoding)

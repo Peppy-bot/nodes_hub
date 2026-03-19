@@ -21,7 +21,7 @@
     ]
   },
   parameters: {
-    device: "string",
+    device_path: "string",
     video: {
       frame_rate: "u16",
       resolution: {
