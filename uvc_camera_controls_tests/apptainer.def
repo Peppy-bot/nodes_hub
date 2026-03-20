@@ -17,7 +17,7 @@ From: public.ecr.aws/ubuntu/ubuntu:24.04
 
     apt-get update
     apt-get install -y --no-install-recommends \
-        ca-certificates curl build-essential pkg-config libclang-dev
+        ca-certificates curl build-essential pkg-config
     rm -rf /var/lib/apt/lists/*
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y

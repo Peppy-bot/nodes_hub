@@ -14,15 +14,8 @@
       ]
     }
   },
-  process: {
-    add_cmd: [
-      "cargo",
-      "build",
-      "--release"
-    ],
-    start_cmd: [
-      "./target/release/uvc_camera_controls_tests"
-    ]
+  container: {
+    def_file: "apptainer.def"
   },
   interfaces: {
     topics: {
