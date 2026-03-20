@@ -2,14 +2,14 @@ Bootstrap: docker
 From: public.ecr.aws/ubuntu/ubuntu:24.04
 
 %labels
-    Name uvc_camera
+    Name uvc_camera_controls_tests
     Version 0.1.0
 
 %environment
     export PATH="/root/.cargo/bin:$PATH"
 
 %files
-    . /opt/uvc_camera
+    . /opt/uvc_camera_controls_tests
 
 %post
     set -eux
@@ -17,15 +17,18 @@ From: public.ecr.aws/ubuntu/ubuntu:24.04
 
     apt-get update
     apt-get install -y --no-install-recommends \
-        ca-certificates curl build-essential pkg-config
+        ca-certificates curl build-essential pkg-config \
+        libclang-dev \
+        libavutil-dev libavformat-dev libavcodec-dev libavfilter-dev \
+        libavdevice-dev libswscale-dev libswresample-dev libpostproc-dev
     rm -rf /var/lib/apt/lists/*
 
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     export PATH="/root/.cargo/bin:$PATH"
 
-    cd /opt/uvc_camera
+    cd /opt/uvc_camera_controls_tests
     cargo build --release
 
 %runscript
-    cd /opt/uvc_camera
-    exec ./target/release/uvc_camera
+    cd /opt/uvc_camera_controls_tests
+    exec ./target/release/uvc_camera_controls_tests

@@ -885,21 +885,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fake_video_reconstruction"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "ffmpeg-next",
- "peppygen",
- "peppylib",
- "serde",
- "tempfile",
- "tokio",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
 name = "fancy-regex"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3820,6 +3805,21 @@ checksum = "23b082222b4f6619906941c17eb2297fff4c2fb96cb60164170522942a200bd8"
 dependencies = [
  "outref",
  "vsimd",
+]
+
+[[package]]
+name = "uvc_camera_controls_tests"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "ffmpeg-next",
+ "peppygen",
+ "peppylib",
+ "serde",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
