@@ -15,7 +15,7 @@
     mount_paths: [
       // write permissions required for services
       "${parameters:device_path}:/dev/video0:rw"
-    ]
+    ],
   },
   parameters: {
     device_path: "string",

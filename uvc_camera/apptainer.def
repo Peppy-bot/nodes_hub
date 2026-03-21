@@ -20,6 +20,10 @@ From: public.ecr.aws/ubuntu/ubuntu:24.04
         ca-certificates curl build-essential pkg-config libclang-dev
     rm -rf /var/lib/apt/lists/*
 
+    # Ensure the video group exists so Apptainer can map the host user's
+    # video group into the container (required for /dev/video* access).
+    groupadd -f video
+
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     export PATH="/root/.cargo/bin:$PATH"
 

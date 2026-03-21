@@ -107,7 +107,7 @@ fn main() -> Result<()> {
                     run_nokhwa_capture_loop(camera_config, node_runner, cancel_token, control_rx)
                         .await
                 {
-                    tracing::error!("Camera capture loop error: {e:?}");
+                    panic!("[uvc_camera] Camera capture loop failed: {e}");
                 }
             });
 

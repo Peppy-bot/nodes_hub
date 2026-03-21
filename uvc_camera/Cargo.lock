@@ -4606,6 +4606,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "image",
+ "libc",
  "nokhwa",
  "peppygen",
  "peppylib",

@@ -145,9 +145,20 @@ Error: Permission denied when accessing /dev/videoX
 
 **Solution:**
 ```bash
-sudo usermod -a -G video $USER
-# Log out and back in
+# 1. Add your user to the video group (if not already done):
+sudo usermod -aG video $USER
+
+# 2. Activate the group in the current session (no logout needed):
+newgrp video
+
+# 3. Verify it took effect:
+groups   # should include 'video'
 ```
+
+**In a container:** The error output includes diagnostic details showing which
+group the device requires and which groups your process actually has. This helps
+identify whether the container runtime dropped your supplementary groups.
+Ensure your Apptainer configuration preserves host group membership.
 
 ### Low Frame Rate
 If actual FPS is lower than configured:
