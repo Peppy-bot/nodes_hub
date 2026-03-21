@@ -320,10 +320,10 @@ fn resolve_gid_to_name(gid: libc::gid_t) -> Option<String> {
         let name = fields.next()?;
         let _ = fields.next(); // password
         let gid_str = fields.next()?;
-        if let Ok(parsed) = gid_str.parse::<u32>() {
-            if parsed == gid {
-                return Some(name.to_string());
-            }
+        if let Ok(parsed) = gid_str.parse::<u32>()
+            && parsed == gid
+        {
+            return Some(name.to_string());
         }
     }
     None
@@ -343,6 +343,20 @@ fn diagnose_permission_error(device_path: &str) -> String {
         );
         return msg;
     };
+
+    // GID 65534 is the kernel's overflow GID — it means the device's real GID
+    // (e.g. 44/video on the host) is not mapped into the current user namespace.
+    // This happens when Apptainer runs in unprivileged/rootless mode.
+    const OVERFLOW_GID: libc::gid_t = 65534;
+    if device_gid == OVERFLOW_GID {
+        msg.push_str(
+            " The device's group appears as 'nogroup' (gid=65534), which means \
+             the real group (likely 'video') is not mapped into this user namespace. \
+             The container runtime must map the host 'video' group GID. \
+             On the host, run: sudo usermod -aG video $USER && newgrp video",
+        );
+        return msg;
+    }
 
     let group_label = match resolve_gid_to_name(device_gid) {
         Some(name) => format!("'{name}' (gid={device_gid})"),
@@ -649,9 +663,6 @@ mod tests {
     #[test]
     fn test_diagnose_permission_error_nonexistent() {
         let msg = diagnose_permission_error("/dev/nonexistent_device_xyz");
-        assert!(
-            msg.contains("Could not stat"),
-            "Unexpected message: {msg}"
-        );
+        assert!(msg.contains("Could not stat"), "Unexpected message: {msg}");
     }
 }
