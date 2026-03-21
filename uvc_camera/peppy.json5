@@ -12,10 +12,7 @@
   },
   container: {
     def_file: "apptainer.def",
-    mount_paths: [
-      // write permissions required for services
-      "${parameters:device_path}:/dev/video0:rw"
-    ],
+    // `/dev` paths where the cameras are located are automatically available to containers
   },
   parameters: {
     device_path: "string",
