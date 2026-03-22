@@ -1,12 +1,9 @@
 Bootstrap: docker
-From: public.ecr.aws/ubuntu/ubuntu:24.04
+From: rust:1-slim
 
 %labels
     Name uvc_camera
     Version 0.1.0
-
-%environment
-    export PATH="/root/.cargo/bin:$PATH"
 
 %files
     . /opt/uvc_camera
@@ -16,16 +13,8 @@ From: public.ecr.aws/ubuntu/ubuntu:24.04
     export DEBIAN_FRONTEND=noninteractive
 
     apt-get update
-    apt-get install -y --no-install-recommends \
-        ca-certificates curl build-essential pkg-config libclang-dev
+    apt-get install -y --no-install-recommends pkg-config libclang-dev
     rm -rf /var/lib/apt/lists/*
-
-    # Ensure the video group exists so Apptainer can map the host user's
-    # video group into the container (required for /dev/video* access).
-    groupadd -f video
-
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    export PATH="/root/.cargo/bin:$PATH"
 
     cd /opt/uvc_camera
     cargo build --release
