@@ -1,0 +1,45 @@
+Bootstrap: docker
+From: ubuntu:24.04
+
+%labels
+    Name fake_uvc_camera
+    Version 0.1.0
+
+%environment
+    export PATH="/root/.cargo/bin:$PATH"
+
+%files
+    . /opt/fake_uvc_camera
+
+%post
+    set -eux
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        build-essential \
+        pkg-config \
+        ffmpeg \
+        libavdevice-dev \
+        libavcodec-dev \
+        libavformat-dev \
+        libavutil-dev \
+        libswscale-dev \
+        libdav1d-dev \
+        libswresample-dev \
+        libavfilter-dev \
+        clang \
+        libclang-dev \
+        llvm-dev
+    rm -rf /var/lib/apt/lists/*
+
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    export PATH="/root/.cargo/bin:$PATH"
+
+    cd /opt/fake_uvc_camera
+    cargo build --release
+
+%runscript
+    cd /opt/fake_uvc_camera
+    exec ./target/release/fake_uvc_camera

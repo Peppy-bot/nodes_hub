@@ -22,9 +22,15 @@
         }
       },
       {
-        name: "mock",
+        name: "mock-rust",
         source: {
-          local: "./variants/fake"
+          local: "./variants/mock_rust"
+        }
+      },
+      {
+        name: "mock-python",
+        source: {
+          local: "./variants/mock_python"
         }
       },
     ]

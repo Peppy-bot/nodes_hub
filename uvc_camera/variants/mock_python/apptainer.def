@@ -1,0 +1,31 @@
+Bootstrap: docker
+From: ubuntu:24.04
+
+%labels
+    Name fake_uvc_camera
+    Version 0.1.0
+
+%environment
+    export DEBIAN_FRONTEND=noninteractive
+    export PATH="/opt/fake_uvc_camera/.venv/bin:$PATH"
+
+%files
+    . /opt/fake_uvc_camera
+
+%post
+    set -eux
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates curl python3 python3-venv
+    rm -rf /var/lib/apt/lists/*
+
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="/root/.local/bin:$PATH"
+
+    cd /opt/fake_uvc_camera
+    uv sync --no-editable
+
+%runscript
+    cd /opt/fake_uvc_camera
+    exec ./.venv/bin/python -m fake_uvc_camera
