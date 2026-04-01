@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fake_video_reconstruction"
+version = "0.1.0"
+description = "fake_video_reconstruction peppy node"
+requires-python = ">=3.11,<3.14"
+dependencies = ["peppygen", "av", "numpy"]
+
+[project.scripts]
+fake_video_reconstruction = "fake_video_reconstruction.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fake_video_reconstruction"]
+
+[dependency-groups]
+dev = []
+
+[tool.uv.sources]
+peppygen = { path = ".peppy/libs/peppygen" }

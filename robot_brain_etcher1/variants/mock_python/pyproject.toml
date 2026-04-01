@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fake_robot_brain"
+version = "0.1.0"
+description = "fake_robot_brain peppy node"
+requires-python = ">=3.11,<3.14"
+dependencies = ["peppygen"]
+
+[project.scripts]
+fake_robot_brain = "fake_robot_brain.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fake_robot_brain"]
+
+[dependency-groups]
+dev = []
+
+[tool.uv.sources]
+peppygen = { path = ".peppy/libs/peppygen" }

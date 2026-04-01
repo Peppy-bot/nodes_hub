@@ -1,0 +1,46 @@
+{
+  schema_version: 1,
+  manifest: {
+    name: "fake_video_reconstruction",
+    tag: "0.1.0",
+    language: "python",
+    depends_on: {
+      nodes: [
+        {
+          name: "fake_uvc_camera",
+          tag: "0.1.0",
+          local_id: "camera_stream"
+        }
+      ]
+    },
+  },
+  container: {
+    def_file: "apptainer.def",
+    mount_paths: [
+      // host_path:container_path:options
+      "/tmp/video_reconstruction:/tmp/video_reconstruction:rw"
+    ]
+  },
+  parameters: {
+    // How long do you want the reconstruction to be?
+    video_duration_seconds: "u32"
+  },
+  interfaces: {
+    topics: {
+      consumes: [
+        {
+          local_node_id: "camera_stream",
+          name: "video_stream",
+        },
+      ],
+    },
+    services: {
+      consumes: [
+        {
+          local_node_id: "camera_stream",
+          name: "video_stream_info",
+        },
+      ]
+    }
+  }
+}

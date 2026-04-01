@@ -1,0 +1,67 @@
+{
+  schema_version: 1,
+  manifest: {
+    // This is a brain that can plug to any controller
+    name: "fake_robot_brain",
+    tag: "0.1.0",
+    language: "rust",
+    labels: [
+      "brain"
+    ],
+    depends_on: {
+      nodes: [
+        {
+          name: "fake_uvc_camera",
+          tag: "0.1.0",
+          local_id: "camera_stream"
+        },
+        {
+          name: "fake_openarm01_controller",
+          tag: "0.1.0",
+          local_id: "openarm01_controller"
+        }
+      ]
+    },
+  },
+  process: {
+    add_cmd: [
+      "cargo",
+      "build",
+      "--release"
+    ],
+    start_cmd: [
+      "./target/release/fake_robot_brain"
+    ]
+  },
+  interfaces: {
+    topics: {
+      // The brain receives the inputs from the camera
+      consumes: [
+        {
+          local_node_id: "camera_stream",
+          name: "video_stream",
+        },
+      ],
+    },
+    services: {
+      consumes: [
+        {
+          local_node_id: "camera_stream",
+          name: "video_stream_info",
+        },
+      ]
+    },
+    actions: {
+      consumes: [
+        {
+          local_node_id: "openarm01_controller",
+          name: "move_right_arm"
+        },
+        {
+          local_node_id: "openarm01_controller",
+          name: "move_left_arm"
+        }
+      ]
+    }
+  }
+}
