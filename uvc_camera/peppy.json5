@@ -3,28 +3,31 @@
   manifest: {
     name: "uvc_camera",
     tag: "0.1.0",
-    language: "rust",
     labels: [
       "uvc",
       "camera",
       "usb",
     ],
-  },
-  container: {
-    def_file: "apptainer.def",
-    // `/dev` paths where the cameras are located are automatically available to containers
-  },
-  parameters: {
-    device_path: "string",
-    video: {
-      frame_rate: "u16",
-      resolution: {
-        width: "u32",
-        height: "u32",
+    variants: [
+      {
+        name: "default",
+        source: {
+          local: "./variants/linux"
+        }
       },
-      camera_encoding: "string",
-      topic_encoding: "string",
-    },
+      {
+        name: "macos",
+        source: {
+          local: "./variants/macos"
+        }
+      },
+      {
+        name: "mock",
+        source: {
+          local: "./variants/fake"
+        }
+      },
+    ]
   },
   interfaces: {
     topics: {
@@ -118,6 +121,27 @@
           },
         },
       ]
+    },
+  },
+  execution: {
+    container: {
+      def_file: "apptainer.def",
+      mount_paths: [
+        // write permissions required for services
+        "${parameters:device_path}:/dev/video0:rw"
+      ]
+    },
+    parameters: {
+      device_path: "string",
+      video: {
+        frame_rate: "u16",
+        resolution: {
+          width: "u32",
+          height: "u32",
+        },
+        camera_encoding: "string",
+        topic_encoding: "string",
+      },
     },
   }
 }
