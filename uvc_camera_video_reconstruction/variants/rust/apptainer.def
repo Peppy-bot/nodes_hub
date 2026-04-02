@@ -1,25 +1,21 @@
 Bootstrap: docker
-From: ubuntu:24.04
+From: tuatini/peppy-rust-cargo-base:latest
 
 %labels
-    Name fake_video_reconstruction
+    Name uvc_camera_video_reconstruction
     Version 0.1.0
 
 %environment
     export PATH="/root/.cargo/bin:$PATH"
 
 %files
-    . /opt/fake_video_reconstruction
+    . /opt/uvc_camera_video_reconstruction
 
 %post
     set -eux
 
     apt-get update
     apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        build-essential \
-        pkg-config \
         ffmpeg \
         libavdevice-dev \
         libavcodec-dev \
@@ -34,12 +30,9 @@ From: ubuntu:24.04
         llvm-dev
     rm -rf /var/lib/apt/lists/*
 
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    export PATH="/root/.cargo/bin:$PATH"
-
-    cd /opt/fake_video_reconstruction
+    cd /opt/uvc_camera_video_reconstruction
     cargo build --release
 
 %runscript
-    cd /opt/fake_video_reconstruction
-    exec ./target/release/fake_video_reconstruction
+    cd /opt/uvc_camera_video_reconstruction
+    exec ./target/release/uvc_camera_video_reconstruction

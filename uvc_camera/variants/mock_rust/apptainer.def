@@ -30,9 +30,6 @@ From: tuatini/peppy-rust-cargo-base:latest
         llvm-dev
     rm -rf /var/lib/apt/lists/*
 
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    export PATH="/root/.cargo/bin:$PATH"
-
     cd /opt/fake_uvc_camera
     cargo build --release
 

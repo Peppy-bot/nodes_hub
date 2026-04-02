@@ -1,5 +1,5 @@
 [package]
-name = "fake_video_reconstruction"
+name = "uvc_camera_video_reconstruction"
 version = "0.1.0"
 edition = "2024"
 
