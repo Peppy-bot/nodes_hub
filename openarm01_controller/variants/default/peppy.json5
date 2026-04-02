@@ -8,7 +8,7 @@
       "--release"
     ],
     start_cmd: [
-      "./target/release/robot_brain_etcher1"
+      "./target/release/openarm01_controller"
     ]
-  },
+  }
 }

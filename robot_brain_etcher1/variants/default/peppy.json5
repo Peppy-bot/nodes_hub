@@ -10,5 +10,5 @@
     start_cmd: [
       "./target/release/robot_brain_etcher1"
     ]
-  },
+  }
 }

@@ -1,1 +1,61 @@
-{}
+{
+  schema_version: 1,
+  manifest: {
+    name: "robot_brain_etcher1",
+    tag: "0.1.0",
+    labels: [
+      "brain"
+    ],
+    variants: [
+      {
+        name: "default",
+        source: {
+          local: "./variants/default"
+        }
+      },
+      {
+        name: "mock-rust",
+        source: {
+          local: "./variants/mock_rust"
+        }
+      },
+      {
+        name: "mock-python",
+        source: {
+          local: "./variants/mock_python"
+        }
+      },
+    ]
+  },
+  interfaces: {
+    topics: {
+      // The brain receives the inputs from the camera
+      consumes: [
+        {
+          local_node_id: "camera_stream",
+          name: "video_stream",
+        },
+      ],
+    },
+    services: {
+      consumes: [
+        {
+          local_node_id: "camera_stream",
+          name: "video_stream_info",
+        },
+      ]
+    },
+    actions: {
+      consumes: [
+        {
+          local_node_id: "openarm01_controller",
+          name: "move_right_arm"
+        },
+        {
+          local_node_id: "openarm01_controller",
+          name: "move_left_arm"
+        }
+      ]
+    }
+  }
+}
