@@ -13,6 +13,7 @@ use peppylib::runtime::CancellationToken;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime};
+use std::fs;
 
 fn get_source_video_fps(video_path: &PathBuf) -> u8 {
     let input = ffmpeg::format::input(video_path)
@@ -50,18 +51,18 @@ fn main() -> Result<()> {
         source_fps
     );
 
-    // Example configuration; consider using `clap` for CLI argument parsing
-    let standalone_config = StandaloneConfig::new().with_parameters(&Parameters {
-        device_path: "/dev/video0".to_string(),
-        video: Video {
-            encoding: "rgb8".to_string(),
-            frame_rate: source_fps as u16,
-            resolution: VideoResolution {
-                width: 640,
-                height: 480,
-            },
-        },
-    });
+    // Load parameters from mock file for standalone execution
+    let mock_params_path = std::env::current_dir()
+        .expect("Failed to get current working directory")
+        .join("mock_parameters.json");
+    let mock_params_json = fs::read_to_string(&mock_params_path)
+        .unwrap_or_else(|e| panic!("Failed to read '{}': {e}", mock_params_path.display()));
+    let mock_params: Parameters = serde_json::from_str(&mock_params_json)
+        .unwrap_or_else(|e| panic!("Failed to parse '{}': {e}", mock_params_path.display()));
+
+    // Fallback configuration for standalone execution (e.g., `cargo run`).
+    // Ignored when the node is launched by the peppy daemon, which provides its own parameters.
+    let standalone_config = StandaloneConfig::new().with_parameters(&mock_params);
 
     NodeBuilder::new()
         // Fallback configuration for standalone execution (e.g., `cargo run`).
@@ -75,11 +76,11 @@ fn main() -> Result<()> {
             video_params.resolution.width,
             video_params.resolution.height,
             video_params.frame_rate,
-            video_params.encoding
+            video_params.topic_encoding
         );
 
         // Validate encoding before spawning - this node outputs RGB24 format data
-        let encoding = &video_params.encoding;
+        let encoding = &video_params.topic_encoding;
         if encoding != "rgb8" && encoding != "rgb" {
             panic!(
                 "Invalid encoding '{}'. This camera node outputs RGB24 data, so encoding must be 'rgb8' or 'rgb'",
@@ -128,7 +129,7 @@ async fn run_video_loop(
 
     let width = video_params.resolution.width as u32;
     let height = video_params.resolution.height as u32;
-    let encoding = video_params.encoding.clone();
+    let encoding = video_params.topic_encoding.clone();
     let frame_duration_ms = 1000 / video_params.frame_rate as u64;
 
     loop {
@@ -247,7 +248,7 @@ async fn listen_for_video_stream_info_requests(
                 params.resolution.width as u32,
                 params.resolution.height as u32,
                 fps,
-                params.encoding.clone(),
+                params.topic_encoding.clone(),
             ))
         })
         .await

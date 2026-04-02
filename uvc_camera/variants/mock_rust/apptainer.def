@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: ubuntu:24.04
+From: tuatini/peppy-rust-cargo-base:latest
 
 %labels
     Name fake_uvc_camera
@@ -16,10 +16,6 @@ From: ubuntu:24.04
 
     apt-get update
     apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        build-essential \
-        pkg-config \
         ffmpeg \
         libavdevice-dev \
         libavcodec-dev \

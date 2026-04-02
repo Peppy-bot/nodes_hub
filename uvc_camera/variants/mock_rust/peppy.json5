@@ -14,7 +14,8 @@
           width: "u16",
           height: "u16",
         },
-        encoding: "string",
+        camera_encoding: "string",
+        topic_encoding: "string",
       },
     },
   }

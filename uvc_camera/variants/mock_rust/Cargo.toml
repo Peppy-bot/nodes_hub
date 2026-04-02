@@ -9,3 +9,4 @@ peppylib = { path = ".peppy/libs/peppylib" }
 tokio = { version = "1.47", features = ["full"] }
 tracing = "0.1"
 ffmpeg-next = "8"
+serde_json = "1"

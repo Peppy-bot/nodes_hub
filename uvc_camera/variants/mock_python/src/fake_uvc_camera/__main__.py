@@ -1,5 +1,6 @@
 import av
 import asyncio
+import json
 import time
 from pathlib import Path
 
@@ -28,11 +29,11 @@ async def setup(params: Parameters, node_runner: NodeRunner) -> list[asyncio.Tas
 
     print(
         f"[uvc_camera] Video params: {video_params.resolution.width}x{video_params.resolution.height} "
-        f"@ {video_params.frame_rate} fps, encoding: {video_params.encoding}"
+        f"@ {video_params.frame_rate} fps, encoding: {video_params.topic_encoding}"
     )
 
     # Validate encoding - this node outputs RGB24 format data
-    encoding = video_params.encoding
+    encoding = video_params.topic_encoding
     if encoding not in ("rgb8", "rgb"):
         raise ValueError(
             f"Invalid encoding '{encoding}'. This camera node outputs RGB24 data, "
@@ -70,7 +71,7 @@ async def run_video_loop(node_runner: NodeRunner, video_params):
 
     width = video_params.resolution.width
     height = video_params.resolution.height
-    encoding = video_params.encoding
+    encoding = video_params.topic_encoding
     frame_duration = 1.0 / video_params.frame_rate
 
     while True:
@@ -112,7 +113,7 @@ async def listen_for_video_stream_info_requests(
                     width=video_params.resolution.width,
                     height=video_params.resolution.height,
                     frames_per_second=actual_fps,
-                    encoding=video_params.encoding,
+                    encoding=video_params.topic_encoding,
                 ),
             )
         except Exception as e:
@@ -120,28 +121,14 @@ async def listen_for_video_stream_info_requests(
 
 
 def main():
-    video_path = ASSETS_DIR / "robot.mp4"
-    source_fps = get_source_video_fps(video_path) if video_path.exists() else 30
-
     # Fallback configuration for standalone execution (e.g., `uv run`).
     # Ignored when the node is launched by the peppy daemon, which provides its own parameters.
-    standalone_config = StandaloneConfig().with_parameters(
-        {
-            "device": {
-                "physical": "/dev/video0",
-                "priority": "normal",
-                "sim": "gstreamer:mujoco_cam",
-            },
-            "video": {
-                "encoding": "rgb8",
-                "frame_rate": source_fps,
-                "resolution": {
-                    "width": 640,
-                    "height": 480,
-                },
-            },
-        }
-    )
+    standalone_config = StandaloneConfig()
+
+    mock_params_path = Path(__file__).resolve().parent.parent.parent / "mock_parameters.json"
+    if mock_params_path.exists():
+        mock_params = json.loads(mock_params_path.read_text())
+        standalone_config = standalone_config.with_parameters(mock_params)
 
     NodeBuilder().standalone(standalone_config).run(setup)
 
