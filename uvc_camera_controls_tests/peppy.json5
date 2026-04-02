@@ -3,7 +3,6 @@
   manifest: {
     name: "uvc_camera_controls_tests",
     tag: "0.1.0",
-    language: "rust",
     depends_on: {
       nodes: [
         {
@@ -13,9 +12,6 @@
         },
       ]
     }
-  },
-  container: {
-    def_file: "apptainer.def"
   },
   interfaces: {
     topics: {
@@ -54,5 +50,11 @@
         },
       ]
     }
+  },
+  execution: {
+    language: "rust",
+    container: {
+      def_file: "apptainer.def"
+    },
   }
 }
