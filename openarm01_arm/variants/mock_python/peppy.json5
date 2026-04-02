@@ -1,0 +1,16 @@
+{
+  schema_version: 1,
+  execution: {
+    language: "python",
+    add_cmd: [
+      "uv",
+      "sync",
+      "--no-editable"
+    ],
+    start_cmd: [
+      "./.venv/bin/python",
+      "-m",
+      "openarm01_arm"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+Bootstrap: docker
+From: tuatini/peppy-rust-cargo-base:latest
+
+%labels
+    Name fake_uvc_camera
+    Version 0.1.0
+
+%environment
+    export PATH="/root/.cargo/bin:$PATH"
+
+%files
+    . /opt/fake_uvc_camera
+
+%post
+    set -eux
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ffmpeg \
+        libavdevice-dev \
+        libavcodec-dev \
+        libavformat-dev \
+        libavutil-dev \
+        libswscale-dev \
+        libdav1d-dev \
+        libswresample-dev \
+        libavfilter-dev \
+        clang \
+        libclang-dev \
+        llvm-dev
+    rm -rf /var/lib/apt/lists/*
+
+    cd /opt/fake_uvc_camera
+    cargo build --release
+
+%runscript
+    cd /opt/fake_uvc_camera
+    exec ./target/release/fake_uvc_camera

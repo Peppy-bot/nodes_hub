@@ -1,0 +1,21 @@
+{
+  schema_version: 1,
+  execution: {
+    language: "rust",
+    start_cmd: [
+      ""
+    ],
+    parameters: {
+      device_path: "string",
+      video: {
+        frame_rate: "u16",
+        resolution: {
+          width: "u32",
+          height: "u32",
+        },
+        camera_encoding: "string",
+        topic_encoding: "string",
+      },
+    },
+  }
+}

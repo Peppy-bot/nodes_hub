@@ -1,0 +1,22 @@
+{
+  schema_version: 1,
+  execution: {
+    language: "python",
+    container: {
+      def_file: "apptainer.def"
+    },
+    // Those are fake parameters supposed to emulate a real camera
+    parameters: {
+      device_path: "string",
+      video: {
+        frame_rate: "u16",
+        resolution: {
+          width: "u16",
+          height: "u16",
+        },
+        camera_encoding: "string",
+        topic_encoding: "string",
+      },
+    },
+  }
+}

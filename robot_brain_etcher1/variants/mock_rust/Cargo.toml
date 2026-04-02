@@ -1,0 +1,10 @@
+[package]
+name = "robot_brain_etcher1"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+peppygen = { path = ".peppy/libs/peppygen" }
+peppylib = { path = ".peppy/libs/peppylib" }
+tokio = { version = "1.47", features = ["full"] }
+tracing = "0.1"

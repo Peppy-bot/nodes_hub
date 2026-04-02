@@ -1,0 +1,24 @@
+Bootstrap: docker
+From: tuatini/peppy-python-uv-base:latest
+
+%labels
+    Name uvc_camera_video_reconstruction
+    Version 0.1.0
+
+%environment
+    export PATH="/opt/uvc_camera_video_reconstruction/.venv/bin:$PATH"
+
+%files
+    . /opt/uvc_camera_video_reconstruction
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+
+    cd /opt/uvc_camera_video_reconstruction
+    uv python install
+    uv sync --no-editable
+
+%runscript
+    cd /opt/uvc_camera_video_reconstruction
+    exec ./.venv/bin/python -m uvc_camera_video_reconstruction

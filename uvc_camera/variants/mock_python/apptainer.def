@@ -1,0 +1,24 @@
+Bootstrap: docker
+From: tuatini/peppy-python-uv-base:latest
+
+%labels
+    Name fake_uvc_camera
+    Version 0.1.0
+
+%environment
+    export PATH="/opt/fake_uvc_camera/.venv/bin:$PATH"
+
+%files
+    . /opt/fake_uvc_camera
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+
+    cd /opt/fake_uvc_camera
+    uv python install
+    uv sync --no-editable
+
+%runscript
+    cd /opt/fake_uvc_camera
+    exec ./.venv/bin/python -m fake_uvc_camera

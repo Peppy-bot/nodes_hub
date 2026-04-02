@@ -3902,17 +3902,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "uvc_camera_controls_tests"
+name = "uvc_camera_video_reconstruction"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "ffmpeg-next",
  "peppygen",
  "peppylib",
- "serde",
- "tempfile",
  "tokio",
- "tokio-util",
  "tracing",
 ]
 
