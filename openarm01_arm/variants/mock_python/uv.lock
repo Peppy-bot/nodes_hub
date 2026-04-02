@@ -3,7 +3,7 @@ revision = 3
 requires-python = "==3.13.*"
 
 [[package]]
-name = "fake-openarm01-arm"
+name = "openarm01-arm"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
