@@ -6,6 +6,20 @@
     labels: [
       "brain"
     ],
+    depends_on: {
+      nodes: [
+        {
+          name: "uvc_camera",
+          tag: "0.1.0",
+          local_id: "camera_stream"
+        },
+        {
+          name: "openarm01_controller",
+          tag: "0.1.0",
+          local_id: "robot_controller"
+        }
+      ]
+    },
     variants: [
       {
         name: "default",
@@ -48,11 +62,11 @@
     actions: {
       consumes: [
         {
-          local_node_id: "openarm01_controller",
+          local_node_id: "robot_controller",
           name: "move_right_arm"
         },
         {
-          local_node_id: "openarm01_controller",
+          local_node_id: "robot_controller",
           name: "move_left_arm"
         }
       ]

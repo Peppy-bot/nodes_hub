@@ -1,6 +1,7 @@
 {
   schema_version: 1,
   execution: {
+    language: "python",
     add_cmd: [
       "uv",
       "sync",

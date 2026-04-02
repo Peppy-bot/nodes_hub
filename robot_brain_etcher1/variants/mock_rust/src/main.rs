@@ -1,5 +1,5 @@
-use peppygen::consumed_actions::openarm01_controller_move_left_arm as left_arm;
-use peppygen::consumed_actions::openarm01_controller_move_right_arm as right_arm;
+use peppygen::consumed_actions::robot_controller_move_left_arm as left_arm;
+use peppygen::consumed_actions::robot_controller_move_right_arm as right_arm;
 use peppygen::consumed_topics::camera_stream_video_stream as video_stream;
 use peppygen::{NodeBuilder, NodeRunner, Parameters, QoSProfile, Result};
 use peppylib::runtime::CancellationToken;

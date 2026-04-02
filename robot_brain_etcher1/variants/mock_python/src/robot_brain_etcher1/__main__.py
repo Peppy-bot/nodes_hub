@@ -3,10 +3,10 @@ import asyncio
 from peppygen import NodeBuilder, NodeRunner, QoSProfile
 from peppygen.parameters import Parameters
 from peppygen.consumed_actions import (
-    openarm01_controller_move_left_arm as left_arm,
+    robot_controller_move_left_arm as left_arm,
 )
 from peppygen.consumed_actions import (
-    openarm01_controller_move_right_arm as right_arm,
+    robot_controller_move_right_arm as right_arm,
 )
 from peppygen.consumed_topics import camera_stream_video_stream as video_stream
 
