@@ -13,6 +13,11 @@ from peppygen.parameters import Parameters
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
+ENCODING_TO_AV_FORMAT = {
+    "rgb8": "rgb24",
+    "rgb": "rgb24",
+}
+
 
 def get_source_video_fps(video_path: Path) -> int:
     container = av.open(str(video_path))
@@ -32,12 +37,11 @@ async def setup(params: Parameters, node_runner: NodeRunner) -> list[asyncio.Tas
         f"@ {video_params.frame_rate} fps, encoding: {video_params.topic_encoding}"
     )
 
-    # Validate encoding - this node outputs RGB24 format data
     encoding = video_params.topic_encoding
-    if encoding not in ("rgb8", "rgb"):
+    if encoding not in ENCODING_TO_AV_FORMAT:
         raise ValueError(
-            f"Invalid encoding '{encoding}'. This camera node outputs RGB24 data, "
-            "so encoding must be 'rgb8' or 'rgb'"
+            f"Invalid encoding '{encoding}'. "
+            f"Supported encodings: {', '.join(ENCODING_TO_AV_FORMAT)}"
         )
 
     # Probe source video to get its actual frame rate
@@ -79,9 +83,9 @@ async def run_video_loop(node_runner: NodeRunner, video_params):
         container = av.open(str(video_path))
 
         for frame in container.decode(video=0):
-            # Reformat to RGB24 at target resolution
-            rgb_frame = frame.reformat(width=width, height=height, format="rgb24")
-            data = bytes(rgb_frame.planes[0])
+            av_format = ENCODING_TO_AV_FORMAT[encoding]
+            rgb_frame = frame.reformat(width=width, height=height, format=av_format)
+            data = rgb_frame.to_ndarray(format=av_format).tobytes()
 
             header = MessageHeader(
                 stamp=time.time(),
