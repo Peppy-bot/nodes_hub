@@ -30,9 +30,9 @@ trait ArmAction: Sized + Send {
         node_runner: &peppygen::NodeRunner,
     ) -> impl Future<Output = Result<Self>> + Send + '_;
 
-    fn next_goal(&mut self) -> impl Future<Output = Result<Option<Self::GoalRequest>>> + Send + '_;
+    async fn next_goal(&mut self) -> Result<Option<Self::GoalRequest>>;
 
-    fn check_cancel(&mut self) -> impl Future<Output = Result<CancelPoll>> + Send + '_;
+    async fn check_cancel(&mut self) -> Result<CancelPoll>;
 
     fn send_feedback(&mut self, position: [i32; 3])
     -> impl Future<Output = Result<()>> + Send + '_;
@@ -56,39 +56,35 @@ impl ArmAction for move_left_arm::ActionHandle {
         Self::expose(node_runner)
     }
 
-    fn next_goal(&mut self) -> impl Future<Output = Result<Option<Self::GoalRequest>>> + Send + '_ {
-        async move {
-            let goal_holder = Arc::new(Mutex::new(None));
-            let goal_holder_clone = Arc::clone(&goal_holder);
-            let handled = self
-                .handle_goal_next_request(move |request| {
-                    *goal_holder_clone.lock().expect("goal lock poisoned") = Some(request);
-                    Ok(move_left_arm::GoalResponse::new(true))
-                })
-                .await?;
-            if !handled {
-                return Ok(None);
-            }
-            Ok(goal_holder.lock().expect("goal lock poisoned").take())
+    async fn next_goal(&mut self) -> Result<Option<Self::GoalRequest>> {
+        let goal_holder = Arc::new(Mutex::new(None));
+        let goal_holder_clone = Arc::clone(&goal_holder);
+        let handled = self
+            .handle_goal_next_request(move |request| {
+                *goal_holder_clone.lock().expect("goal lock poisoned") = Some(request);
+                Ok(move_left_arm::GoalResponse::new(true))
+            })
+            .await?;
+        if !handled {
+            return Ok(None);
         }
+        Ok(goal_holder.lock().expect("goal lock poisoned").take())
     }
 
-    fn check_cancel(&mut self) -> impl Future<Output = Result<CancelPoll>> + Send + '_ {
-        async move {
-            match tokio::time::timeout(
-                Duration::from_millis(0),
-                self.handle_cancel_next_request(|_request| {
-                    Ok(move_left_arm::CancelResponse::new(true, None))
-                }),
-            )
-            .await
-            {
-                Ok(result) => match result? {
-                    true => Ok(CancelPoll::Cancelled),
-                    false => Ok(CancelPoll::Closed),
-                },
-                Err(_) => Ok(CancelPoll::None),
-            }
+    async fn check_cancel(&mut self) -> Result<CancelPoll> {
+        match tokio::time::timeout(
+            Duration::from_millis(0),
+            self.handle_cancel_next_request(|_request| {
+                Ok(move_left_arm::CancelResponse::new(true, None))
+            }),
+        )
+        .await
+        {
+            Ok(result) => match result? {
+                true => Ok(CancelPoll::Cancelled),
+                false => Ok(CancelPoll::Closed),
+            },
+            Err(_) => Ok(CancelPoll::None),
         }
     }
 
@@ -122,39 +118,35 @@ impl ArmAction for move_right_arm::ActionHandle {
         Self::expose(node_runner)
     }
 
-    fn next_goal(&mut self) -> impl Future<Output = Result<Option<Self::GoalRequest>>> + Send + '_ {
-        async move {
-            let goal_holder = Arc::new(Mutex::new(None));
-            let goal_holder_clone = Arc::clone(&goal_holder);
-            let handled = self
-                .handle_goal_next_request(move |request| {
-                    *goal_holder_clone.lock().expect("goal lock poisoned") = Some(request);
-                    Ok(move_right_arm::GoalResponse::new(true))
-                })
-                .await?;
-            if !handled {
-                return Ok(None);
-            }
-            Ok(goal_holder.lock().expect("goal lock poisoned").take())
+    async fn next_goal(&mut self) -> Result<Option<Self::GoalRequest>> {
+        let goal_holder = Arc::new(Mutex::new(None));
+        let goal_holder_clone = Arc::clone(&goal_holder);
+        let handled = self
+            .handle_goal_next_request(move |request| {
+                *goal_holder_clone.lock().expect("goal lock poisoned") = Some(request);
+                Ok(move_right_arm::GoalResponse::new(true))
+            })
+            .await?;
+        if !handled {
+            return Ok(None);
         }
+        Ok(goal_holder.lock().expect("goal lock poisoned").take())
     }
 
-    fn check_cancel(&mut self) -> impl Future<Output = Result<CancelPoll>> + Send + '_ {
-        async move {
-            match tokio::time::timeout(
-                Duration::from_millis(0),
-                self.handle_cancel_next_request(|_request| {
-                    Ok(move_right_arm::CancelResponse::new(true, None))
-                }),
-            )
-            .await
-            {
-                Ok(result) => match result? {
-                    true => Ok(CancelPoll::Cancelled),
-                    false => Ok(CancelPoll::Closed),
-                },
-                Err(_) => Ok(CancelPoll::None),
-            }
+    async fn check_cancel(&mut self) -> Result<CancelPoll> {
+        match tokio::time::timeout(
+            Duration::from_millis(0),
+            self.handle_cancel_next_request(|_request| {
+                Ok(move_right_arm::CancelResponse::new(true, None))
+            }),
+        )
+        .await
+        {
+            Ok(result) => match result? {
+                true => Ok(CancelPoll::Cancelled),
+                false => Ok(CancelPoll::Closed),
+            },
+            Err(_) => Ok(CancelPoll::None),
         }
     }
 

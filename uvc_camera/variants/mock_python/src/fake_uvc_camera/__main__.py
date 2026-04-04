@@ -125,7 +125,9 @@ def main():
     # Ignored when the node is launched by the peppy daemon, which provides its own parameters.
     standalone_config = StandaloneConfig()
 
-    mock_params_path = Path(__file__).resolve().parent.parent.parent / "mock_parameters.json"
+    mock_params_path = (
+        Path(__file__).resolve().parent.parent.parent / "mock_parameters.json"
+    )
     if mock_params_path.exists():
         mock_params = json.loads(mock_params_path.read_text())
         standalone_config = standalone_config.with_parameters(mock_params)
