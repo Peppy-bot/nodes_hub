@@ -6,7 +6,6 @@ use peppygen::emitted_topics::video_stream::{self, MessageHeader};
 use peppygen::exposed_services::video_stream_info;
 use peppygen::parameters::{
     self,
-    video::{Video, VideoResolution},
 };
 use peppygen::{NodeBuilder, Parameters, Result, StandaloneConfig};
 use peppylib::runtime::CancellationToken;
