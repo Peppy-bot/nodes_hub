@@ -78,14 +78,31 @@ async def run_video_loop(node_runner: NodeRunner, video_params):
     encoding = video_params.topic_encoding
     frame_duration = 1.0 / video_params.frame_rate
 
+    av_format = ENCODING_TO_AV_FORMAT[encoding]
+
     while True:
         print("[uvc_camera] Opening video file for playback...")
         container = av.open(str(video_path))
+        in_stream = container.streams.video[0]
 
-        for frame in container.decode(video=0):
-            av_format = ENCODING_TO_AV_FORMAT[encoding]
+        # Use software decoder (libdav1d) with threading disabled to avoid
+        # hardware-acceleration paths that hang inside the apptainer sandbox.
+        decoder = av.codec.CodecContext.create("libdav1d", "r")
+        decoder.extradata = in_stream.codec_context.extradata
+        decoder.thread_count = 1
+        decoder.thread_type = "NONE"
+
+        def decode_frames():
+            for packet in container.demux(in_stream):
+                for frame in decoder.decode(packet):
+                    yield frame
+            for frame in decoder.decode(None):
+                yield frame
+
+        for frame in decode_frames():
             rgb_frame = frame.reformat(width=width, height=height, format=av_format)
-            data = rgb_frame.to_ndarray(format=av_format).tobytes()
+            # Read packed bytes directly from the plane to avoid a numpy dependency.
+            data = bytes(rgb_frame.planes[0])
 
             header = MessageHeader(
                 stamp=time.time(),
