@@ -2,7 +2,7 @@
   schema_version: 1,
   execution: {
     language: "rust",
-    start_cmd: [
+    run_cmd: [
       ""
     ],
     parameters: {

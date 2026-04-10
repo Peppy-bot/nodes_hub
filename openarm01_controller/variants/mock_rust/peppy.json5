@@ -7,7 +7,7 @@
       "build",
       "--release"
     ],
-    start_cmd: [
+    run_cmd: [
       "./target/release/fake_openarm01_controller"
     ]
   }
