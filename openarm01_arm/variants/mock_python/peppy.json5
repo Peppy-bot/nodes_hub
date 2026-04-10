@@ -2,7 +2,7 @@
   schema_version: 1,
   execution: {
     language: "python",
-    add_cmd: [
+    build_cmd: [
       "uv",
       "sync",
       "--no-editable"
