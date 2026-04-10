@@ -47,7 +47,7 @@ async def record_video(node_runner: NodeRunner, video_duration_seconds: int):
                 _instance_id,
                 message,
             ) = await camera_stream_video_stream.on_next_message_received(
-                node_runner, instance_id_target=instance_id
+                node_runner, target_instance_id=instance_id
             )
             frames.append(message.frame)
             if (frame_num + 1) % camera_info.frames_per_second == 0:
