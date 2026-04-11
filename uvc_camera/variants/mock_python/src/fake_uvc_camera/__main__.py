@@ -96,8 +96,6 @@ async def run_video_loop(node_runner: NodeRunner, video_params):
             for packet in container.demux(in_stream):
                 for frame in decoder.decode(packet):
                     yield frame
-            for frame in decoder.decode(None):
-                yield frame
 
         for frame in decode_frames():
             rgb_frame = frame.reformat(width=width, height=height, format=av_format)
