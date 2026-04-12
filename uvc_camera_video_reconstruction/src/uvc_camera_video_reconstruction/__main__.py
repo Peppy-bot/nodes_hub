@@ -17,14 +17,17 @@ async def setup(params: Parameters, node_runner: NodeRunner) -> list[asyncio.Tas
 
 async def record_video(node_runner: NodeRunner, video_duration_seconds: int):
     camera_info = None
+    instance_id: str | None = None
     while camera_info is None:
         try:
             response = await camera_stream_video_stream_info.poll(
                 node_runner, timeout=5.0
             )
             camera_info = response.data
+            instance_id = response.instance_id
             print(
-                f"Camera info: {camera_info.width}x{camera_info.height} "
+                f"Locked onto camera instance_id: {instance_id} — "
+                f"{camera_info.width}x{camera_info.height} "
                 f"@ {camera_info.frames_per_second} fps, encoding: {camera_info.encoding}"
             )
         except Exception as e:
@@ -43,7 +46,9 @@ async def record_video(node_runner: NodeRunner, video_duration_seconds: int):
             (
                 _instance_id,
                 message,
-            ) = await camera_stream_video_stream.on_next_message_received(node_runner)
+            ) = await camera_stream_video_stream.on_next_message_received(
+                node_runner, target_instance_id=instance_id
+            )
             frames.append(message.frame)
             if (frame_num + 1) % camera_info.frames_per_second == 0:
                 print(

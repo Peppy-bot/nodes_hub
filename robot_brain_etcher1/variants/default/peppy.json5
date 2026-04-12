@@ -2,12 +2,12 @@
   schema_version: 1,
   execution: {
     language: "rust",
-    add_cmd: [
+    build_cmd: [
       "cargo",
       "build",
       "--release"
     ],
-    start_cmd: [
+    run_cmd: [
       "./target/release/robot_brain_etcher1"
     ]
   }
