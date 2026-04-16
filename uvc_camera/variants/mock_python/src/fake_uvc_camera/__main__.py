@@ -2,6 +2,7 @@ import av
 import asyncio
 import json
 import time
+from importlib.resources import files
 from pathlib import Path
 
 
@@ -144,10 +145,8 @@ def main():
     # Ignored when the node is launched by the peppy daemon, which provides its own parameters.
     standalone_config = StandaloneConfig()
 
-    mock_params_path = (
-        Path(__file__).resolve().parent.parent.parent / "mock_parameters.json"
-    )
-    if mock_params_path.exists():
+    mock_params_path = files("fake_uvc_camera") / "mock_parameters.json"
+    if mock_params_path.is_file():
         mock_params = json.loads(mock_params_path.read_text())
         standalone_config = standalone_config.with_parameters(mock_params)
 
