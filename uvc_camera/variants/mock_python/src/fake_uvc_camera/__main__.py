@@ -71,9 +71,6 @@ async def run_video_loop(node_runner: NodeRunner, video_params):
         raise FileNotFoundError(f"Video file not found: {video_path}")
     print(f"[uvc_camera] Video file found: {video_path}")
 
-    frame_id = 0
-    last_print_time = time.monotonic()
-
     width = video_params.resolution.width
     height = video_params.resolution.height
     encoding = video_params.topic_encoding
@@ -81,27 +78,55 @@ async def run_video_loop(node_runner: NodeRunner, video_params):
 
     av_format = ENCODING_TO_AV_FORMAT[encoding]
 
-    while True:
-        print("[uvc_camera] Opening video file for playback...")
-        container = av.open(str(video_path))
-        in_stream = container.streams.video[0]
+    loop = asyncio.get_running_loop()
+    # Bounded buffer provides backpressure: the decoder thread blocks when
+    # the consumer falls behind instead of growing memory unbounded.
+    frame_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=2)
 
-        # Use software decoder (libdav1d) with threading disabled to avoid
-        # hardware-acceleration paths that hang inside the apptainer sandbox.
-        decoder = av.codec.CodecContext.create("libdav1d", "r")
-        decoder.extradata = in_stream.codec_context.extradata
-        decoder.thread_count = 1
-        decoder.thread_type = "NONE"
+    def decode_forever():
+        # PyAV's demux/decode/reformat calls are synchronous and hold the GIL
+        # for tens of milliseconds at a time — long enough on the Lima VM used
+        # on macOS to starve the asyncio event loop. That caused peppylib's
+        # native health service to miss heartbeats and the daemon to remove
+        # the node after 3 failed checks. Running the pipeline on a worker
+        # thread keeps the event loop free.
+        while True:
+            print("[uvc_camera] Opening video file for playback...")
+            container = av.open(str(video_path))
+            try:
+                in_stream = container.streams.video[0]
 
-        def decode_frames():
-            for packet in container.demux(in_stream):
-                for frame in decoder.decode(packet):
-                    yield frame
+                # Use software decoder (libdav1d) with threading disabled to
+                # avoid hardware-acceleration paths that hang inside the
+                # apptainer sandbox.
+                decoder = av.codec.CodecContext.create("libdav1d", "r")
+                decoder.extradata = in_stream.codec_context.extradata
+                decoder.thread_count = 1
+                decoder.thread_type = "NONE"
 
-        for frame in decode_frames():
-            rgb_frame = frame.reformat(width=width, height=height, format=av_format)
-            # Read packed bytes directly from the plane to avoid a numpy dependency.
-            data = bytes(rgb_frame.planes[0])
+                for packet in container.demux(in_stream):
+                    for frame in decoder.decode(packet):
+                        rgb_frame = frame.reformat(
+                            width=width, height=height, format=av_format
+                        )
+                        # Read packed bytes directly from the plane to avoid
+                        # a numpy dependency.
+                        data = bytes(rgb_frame.planes[0])
+                        asyncio.run_coroutine_threadsafe(
+                            frame_queue.put(data), loop
+                        ).result()
+            finally:
+                container.close()
+            print("[uvc_camera] Video ended, restarting from beginning...")
+
+    decoder_task = asyncio.create_task(asyncio.to_thread(decode_forever))
+
+    frame_id = 0
+    last_print_time = time.monotonic()
+
+    try:
+        while True:
+            data = await frame_queue.get()
 
             header = MessageHeader(
                 stamp=time.time(),
@@ -117,9 +142,8 @@ async def run_video_loop(node_runner: NodeRunner, video_params):
             frame_id = (frame_id + 1) % (2**32)
 
             await asyncio.sleep(frame_duration)
-
-        container.close()
-        print("[uvc_camera] Video ended, restarting from beginning...")
+    finally:
+        decoder_task.cancel()
 
 
 async def listen_for_video_stream_info_requests(
