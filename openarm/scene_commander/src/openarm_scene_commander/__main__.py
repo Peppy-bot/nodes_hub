@@ -961,7 +961,7 @@ button.danger {
 <select id="categorySelect" onchange="renderAssets()"></select>
 
 <label>Asset</label>
-<select id="assetSelect"></select>
+<select id="assetSelect" onchange="selectAsset()"></select>
 
 <div id="assetCount"></div>
 
@@ -988,7 +988,7 @@ button.danger {
 <select id="spawnPhysics">
 <option value="none">None</option>
 <option value="static">Static</option>
-<option value="dynamic">Dynamic</option>
+<option value="dynamic" selected>Dynamic</option>
 </select>
 
 <button onclick="spawnObject()">Spawn Object</button>
@@ -1093,7 +1093,15 @@ async function refreshAssets() {
     status(`Loaded ${assets.length} assets`);
 }
 
+function selectAsset() {
+    const asset = assets.find(a => a.asset_id === el("assetSelect").value);
+    const mass = Number(asset?.default_mass);
+    el("spawnMass").value = Number.isFinite(mass) && mass > 0 ? mass : 0.1;
+    el("spawnPhysics").value = "dynamic";
+}
+
 function renderAssets() {
+    const previous = el("assetSelect").value;
     const search = el("assetSearch").value.trim().toLowerCase();
     const category = el("categorySelect").value;
 
@@ -1117,6 +1125,13 @@ function renderAssets() {
             ${a.display_name} — ${a.category}
         </option>`
     ).join("");
+
+    if (filtered.some(a => a.asset_id === previous)) {
+        el("assetSelect").value = previous;
+    }
+    if (el("assetSelect").value !== previous) {
+        selectAsset();
+    }
 
     el("assetCount").textContent =
         `${filtered.length} matching assets`;
